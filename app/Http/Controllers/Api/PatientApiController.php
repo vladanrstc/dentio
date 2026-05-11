@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\Patient\UpdatePatientRequest;
+use Illuminate\Http\Response;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Patient\StorePatientRequest;
 use App\Http\Resources\PatientCollection;
@@ -38,6 +40,18 @@ class PatientApiController extends Controller
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId, true);
         abort_if($patient === null, 404);
+
+        return new PatientResource($patient);
+    }
+    public function update(UpdatePatientRequest $request, int $patientId): PatientResource
+    {
+        $patient = $this->patientService->findForUser($request->user(), $patientId);
+
+        abort_if($patient === null, Response::HTTP_NOT_FOUND);
+
+        $this->patientService->update($request->user(), $patient, $request->validated());
+
+        $patient = $this->patientService->findForUser($request->user(), $patientId, true);
 
         return new PatientResource($patient);
     }
