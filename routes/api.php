@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\DashboardApiController;
 use App\Http\Controllers\Api\AuthApiController;
 use App\Http\Controllers\Api\PatientApiController;
 use Illuminate\Support\Facades\Route;
@@ -17,6 +18,7 @@ Route::prefix('/v1')->name('api.v1.')->group(function (): void {
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/me', [AuthApiController::class, 'me'])->name('me');
         Route::post('/logout', [AuthApiController::class, 'logout'])->name('logout');
+        Route::get('/dashboard', [DashboardApiController::class, 'index'])->name('dashboard');
 
         Route::prefix('/company')->name('company.')->group(function (): void {
             Route::get('/patients', [PatientApiController::class, 'index'])->name('patients.index');
