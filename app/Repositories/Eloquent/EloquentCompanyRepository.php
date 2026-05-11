@@ -74,15 +74,15 @@ class EloquentCompanyRepository implements CompanyRepositoryInterface
             ])
             ->with([
                 'createdBy',
-                'users' => fn (Builder $query) => $query
+                'users' => fn ($query) => $query
                     ->whereIn('role', [User::ROLE_COMPANY_ADMIN, User::ROLE_DENTIST, User::ROLE_NURSE])
                     ->orderBy('role')
                     ->orderBy('first_name')
                     ->orderBy('last_name'),
-                'invites' => fn (Builder $query) => $query
+                'invites' => fn ($query) => $query
                     ->latest()
                     ->limit(15),
-                'patients' => fn (Builder $query) => $query
+                'patients' => fn ($query) => $query
                     ->latest()
                     ->limit(20),
             ])
