@@ -21,6 +21,7 @@ Route::prefix('/v1')->name('api.v1.')->group(function (): void {
         Route::prefix('/company')->name('company.')->group(function (): void {
             Route::get('/patients', [PatientApiController::class, 'index'])->name('patients.index');
             Route::get('/patients/{patientId}', [PatientApiController::class, 'show'])->name('patients.show');
+            Route::post('/patients', [PatientApiController::class, 'store'])->name('patients.store');
         });
     });
 });
