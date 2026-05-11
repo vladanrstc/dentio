@@ -41,6 +41,11 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/patients', [PatientController::class, 'index'])->name('patients.index');
         Route::get('/patients/create', [PatientController::class, 'create'])->name('patients.create');
         Route::post('/patients', [PatientController::class, 'store'])->name('patients.store');
+        Route::get('/patients/{patientId}/edit', [PatientController::class, 'edit'])->name('patients.edit');
+        Route::get('/patients/{patientId}/status/edit', [PatientStatusController::class, 'edit'])->name('patients.status.edit');
+        Route::get('/patients/{patientId}/tasks/create', [PatientTaskController::class, 'create'])->name('patients.tasks.create');
+        Route::get('/patients/{patientId}/appointments/create', [AppointmentController::class, 'create'])->name('patients.appointments.create');
+        Route::get('/patients/{patientId}/interventions/create', [InterventionController::class, 'create'])->name('patients.interventions.create');
         Route::get('/patients/{patientId}', [PatientController::class, 'show'])->name('patients.show');
         Route::put('/patients/{patientId}', [PatientController::class, 'update'])->name('patients.update');
 

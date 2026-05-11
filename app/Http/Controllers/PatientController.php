@@ -71,6 +71,22 @@ class PatientController extends Controller
         ]);
     }
 
+    public function edit(Request $request, int $patientId): View
+    {
+        $patient = $this->patientService->findForUser($request->user(), $patientId);
+        abort_if($patient === null, 404);
+
+        $dentists = $this->userRepository->forCompanyByRoles((int) $request->user()->company_id, [
+            User::ROLE_DENTIST,
+            User::ROLE_COMPANY_ADMIN,
+        ]);
+
+        return view('patients.edit', [
+            'patient' => $patient,
+            'dentists' => $dentists,
+        ]);
+    }
+
     public function update(UpdatePatientRequest $request, int $patientId): RedirectResponse
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId);

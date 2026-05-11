@@ -6,12 +6,23 @@ use App\Http\Requests\Patient\UpdatePatientStatusRequest;
 use App\Services\PatientService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class PatientStatusController extends Controller
 {
     public function __construct(
         private readonly PatientService $patientService,
     ) {
+    }
+
+    public function edit(Request $request, int $patientId): View
+    {
+        $patient = $this->patientService->findForUser($request->user(), $patientId);
+        abort_if($patient === null, 404);
+
+        return view('patients.status.edit', [
+            'patient' => $patient,
+        ]);
     }
 
     public function update(UpdatePatientStatusRequest $request, int $patientId): RedirectResponse
