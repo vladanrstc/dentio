@@ -1,8 +1,11 @@
 @extends('layouts.app', ['title' => 'Novi pacijent'])
 
 @section('content')
-    <section class="panel" style="max-width: 900px;">
-        <h2>Novi pacijent</h2>
+    <section class="panel wide-card">
+        <div class="page-header">
+            <h2>Novi pacijent</h2>
+            <a class="btn btn-secondary" href="{{ route('patients.index') }}">Nazad</a>
+        </div>
 
         <form method="POST" action="{{ route('patients.store') }}" class="form-grid">
             @csrf
@@ -51,7 +54,6 @@
 
             <div class="field full actions">
                 <button class="btn" type="submit">Sacuvaj</button>
-                <a class="btn btn-secondary" href="{{ route('patients.index') }}">Nazad</a>
             </div>
         </form>
     </section>
