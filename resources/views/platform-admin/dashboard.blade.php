@@ -4,13 +4,13 @@
     <section class="grid cols-3">
         <article class="panel">
             <h3>Kompanije</h3>
-            <div style="font-size: 2rem; font-weight: 700;">{{ $summary['companies_total'] }}</div>
+            <div class="metric">{{ $summary['companies_total'] }}</div>
             <div class="muted">Ukupan broj registrovanih firmi</div>
         </article>
 
         <article class="panel">
             <h3>Korisnici</h3>
-            <div style="font-size: 2rem; font-weight: 700;">{{ $summary['users_total'] }}</div>
+            <div class="metric">{{ $summary['users_total'] }}</div>
             <div class="muted">
                 platform admin: {{ $summary['platform_admins_total'] }},
                 company admin: {{ $summary['company_admins_total'] }}
@@ -19,13 +19,13 @@
 
         <article class="panel">
             <h3>Medicinsko osoblje</h3>
-            <div style="font-size: 2rem; font-weight: 700;">{{ $summary['dentists_total'] + $summary['nurses_total'] }}</div>
+            <div class="metric">{{ $summary['dentists_total'] + $summary['nurses_total'] }}</div>
             <div class="muted">stomatolozi: {{ $summary['dentists_total'] }}, sestre: {{ $summary['nurses_total'] }}</div>
         </article>
     </section>
 
-    <section class="panel" style="margin-top: 14px;">
-        <div style="display:flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center;">
+    <section class="panel section">
+        <div class="page-header">
             <div>
                 <h3 style="margin: 0;">Pozovi company owner-a</h3>
                 <div class="muted">Posalji vlasniku firme email pozivnicu za kreiranje kompanije na platformi.</div>
@@ -40,8 +40,8 @@
         </div>
     </section>
 
-    <section class="panel" style="margin-top: 14px;">
-        <div style="display:flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center;">
+    <section class="panel section">
+        <div class="page-header">
             <h3 style="margin: 0;">Kompanije na platformi</h3>
             <form method="GET" action="{{ route('admin.dashboard') }}">
                 <div class="actions">
@@ -55,9 +55,9 @@
         </div>
 
         @if($companies->isEmpty())
-            <p class="muted" style="margin-top: 12px;">Nema kompanija za prikaz.</p>
+            <p class="muted section">Nema kompanija za prikaz.</p>
         @else
-            <table style="margin-top: 10px;">
+            <table class="section">
                 <thead>
                 <tr>
                     <th>Kompanija</th>
@@ -94,7 +94,7 @@
                 </tbody>
             </table>
 
-            <div style="margin-top: 12px;">
+            <div class="section">
                 {{ $companies->withQueryString()->links() }}
             </div>
         @endif

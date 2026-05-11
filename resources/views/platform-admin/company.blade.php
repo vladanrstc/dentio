@@ -2,7 +2,7 @@
 
 @section('content')
     <section class="panel">
-        <div style="display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <div class="page-header">
             <div>
                 <h2 style="margin: 0 0 4px;">{{ $company->name }}</h2>
                 <div class="muted">{{ $company->address }}</div>
@@ -12,27 +12,27 @@
         </div>
     </section>
 
-    <section class="grid cols-3" style="margin-top: 12px;">
+    <section class="grid cols-3 section">
         <article class="panel">
             <h3>Osoblje</h3>
-            <div style="font-size: 2rem; font-weight: 700;">{{ $company->staff_count }}</div>
+            <div class="metric">{{ $company->staff_count }}</div>
             <div class="muted">company admin, stomatolozi i sestre</div>
         </article>
 
         <article class="panel">
             <h3>Pacijenti</h3>
-            <div style="font-size: 2rem; font-weight: 700;">{{ $company->patients_count }}</div>
+            <div class="metric">{{ $company->patients_count }}</div>
             <div class="muted">ukupno kartona u kompaniji</div>
         </article>
 
         <article class="panel">
             <h3>Termini/Intervencije</h3>
-            <div style="font-size: 2rem; font-weight: 700;">{{ $company->scheduled_appointments_count }} / {{ $company->interventions_count }}</div>
+            <div class="metric">{{ $company->scheduled_appointments_count }} / {{ $company->interventions_count }}</div>
             <div class="muted">aktivni termini / istorija intervencija</div>
         </article>
     </section>
 
-    <section class="grid cols-2" style="margin-top: 12px;">
+    <section class="grid cols-2 section">
         <article class="panel">
             <h3>Osoblje kompanije</h3>
             @if($company->users->isEmpty())
@@ -88,7 +88,7 @@
         </article>
     </section>
 
-    <section class="panel" style="margin-top: 12px;">
+    <section class="panel section">
         <h3>Poslednje pozivnice</h3>
         @if($company->invites->isEmpty())
             <p class="muted">Nema pozivnica.</p>

@@ -7,25 +7,42 @@
     <style>
         :root {
             --bg: #f3f5f9;
+            --bg-soft: #eef3f7;
             --surface: #ffffff;
+            --surface-muted: #f8fafc;
             --text: #1f2937;
             --muted: #6b7280;
             --border: #dde3ec;
+            --border-strong: #c8d2df;
             --accent: #1e7f8f;
             --accent-dark: #15606c;
+            --accent-soft: #e1f2f5;
             --warn: #92400e;
             --danger: #991b1b;
+            --shadow: 0 10px 28px rgba(15, 23, 42, 0.07);
         }
 
         * { box-sizing: border-box; }
+
+        html {
+            min-width: 320px;
+        }
+
         body {
             margin: 0;
             font-family: Inter, Arial, sans-serif;
             background: var(--bg);
             color: var(--text);
+            font-size: 15px;
+            line-height: 1.5;
         }
 
         a { color: inherit; text-decoration: none; }
+
+        a:hover {
+            color: var(--accent-dark);
+        }
+
         .container {
             width: min(1200px, 94vw);
             margin: 0 auto;
@@ -37,6 +54,7 @@
             position: sticky;
             top: 0;
             z-index: 10;
+            box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
         }
 
         .topbar-inner {
@@ -47,27 +65,72 @@
             padding: 12px 0;
         }
 
+        .brand {
+            min-width: 150px;
+        }
+
+        .brand-title {
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+
+        .brand-subtitle {
+            font-size: 0.9rem;
+        }
+
         .nav {
             display: flex;
-            gap: 12px;
+            gap: 6px;
             flex-wrap: wrap;
             align-items: center;
+            flex: 1;
         }
 
         .nav a {
-            padding: 8px 10px;
+            padding: 8px 11px;
             border-radius: 6px;
             color: #374151;
+            font-weight: 600;
+            line-height: 1.2;
         }
 
+        .nav a:hover,
         .nav a.active {
-            background: #e1f2f5;
+            background: var(--accent-soft);
             color: #0f4f58;
-            font-weight: 600;
         }
 
         .page {
-            padding: 20px 0 36px;
+            padding: 24px 0 40px;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .page-header h1,
+        .page-header h2,
+        .page-header h3 {
+            margin: 0;
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .section {
+            margin-top: 14px;
+        }
+
+        .section:first-child {
+            margin-top: 0;
         }
 
         .grid {
@@ -87,16 +150,28 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 14px;
+            padding: 16px;
+            box-shadow: var(--shadow);
+            overflow-x: auto;
         }
 
         .panel h2, .panel h3 {
             margin-top: 0;
+            margin-bottom: 12px;
+            line-height: 1.25;
+        }
+
+        .panel > :last-child {
+            margin-bottom: 0;
         }
 
         .muted { color: var(--muted); }
 
         .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
             border: 0;
             background: var(--accent);
             color: #fff;
@@ -104,9 +179,24 @@
             border-radius: 6px;
             font-weight: 600;
             cursor: pointer;
+            min-height: 38px;
+            line-height: 1.2;
+            white-space: nowrap;
         }
 
-        .btn:hover { background: var(--accent-dark); }
+        .btn:hover {
+            background: var(--accent-dark);
+            color: #fff;
+        }
+
+        .btn:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible,
+        .nav a:focus-visible {
+            outline: 3px solid rgba(30, 127, 143, 0.22);
+            outline-offset: 2px;
+        }
 
         .btn-secondary {
             background: #e5e7eb;
@@ -127,7 +217,7 @@
 
         .form-grid {
             display: grid;
-            gap: 10px;
+            gap: 12px;
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
@@ -137,18 +227,33 @@
             gap: 6px;
         }
 
+        .field span {
+            color: #374151;
+            font-weight: 600;
+        }
+
         .field.full {
             grid-column: 1 / -1;
         }
 
         input, select, textarea {
             width: 100%;
-            padding: 9px 10px;
+            padding: 10px 11px;
             border: 1px solid #cfd6e2;
             border-radius: 6px;
             background: #fff;
             color: #111827;
             font: inherit;
+            min-height: 38px;
+            transition: border-color 120ms ease, box-shadow 120ms ease;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(30, 127, 143, 0.12);
+            outline: 0;
         }
 
         textarea { min-height: 110px; resize: vertical; }
@@ -156,14 +261,27 @@
         table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 680px;
         }
 
         th, td {
             border-bottom: 1px solid #e5e7eb;
-            padding: 8px 6px;
+            padding: 10px 8px;
             text-align: left;
             vertical-align: top;
             font-size: 0.95rem;
+        }
+
+        th {
+            color: #4b5563;
+            font-size: 0.82rem;
+            letter-spacing: 0;
+            text-transform: uppercase;
+            background: var(--surface-muted);
+        }
+
+        tbody tr:hover td {
+            background: #fbfdff;
         }
 
         .tag {
@@ -192,6 +310,7 @@
             padding: 10px 12px;
             border-radius: 6px;
             margin-bottom: 12px;
+            border: 1px solid transparent;
         }
 
         .flash.ok {
@@ -210,6 +329,33 @@
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .actions input,
+        .actions select {
+            width: auto;
+            min-width: 220px;
+        }
+
+        .metric {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+
+        .auth-card {
+            max-width: 480px;
+            margin: 40px auto;
+        }
+
+        .wide-card {
+            max-width: 900px;
+        }
+
+        .invite-card {
+            max-width: 720px;
+            margin: 20px auto;
         }
 
         @media (max-width: 900px) {
@@ -223,6 +369,53 @@
                 align-items: flex-start;
                 flex-direction: column;
             }
+
+            .nav {
+                width: 100%;
+            }
+
+            .panel {
+                padding: 14px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            body {
+                font-size: 14px;
+            }
+
+            .container {
+                width: min(100% - 24px, 1200px);
+            }
+
+            .page {
+                padding: 16px 0 28px;
+            }
+
+            .topbar-inner {
+                gap: 10px;
+            }
+
+            .nav a,
+            .btn {
+                width: 100%;
+            }
+
+            .actions {
+                width: 100%;
+            }
+
+            .actions input,
+            .actions select,
+            .actions .btn,
+            .actions a {
+                width: 100%;
+                min-width: 0;
+            }
+
+            table {
+                min-width: 620px;
+            }
         }
     </style>
 </head>
@@ -231,13 +424,17 @@
     @php
         $authUser = auth()->user();
         $isPlatformAdmin = $authUser->isPlatformAdmin();
-        $hasCompanyContext = $authUser->company_id !== null;
+        $isCompanyUser = in_array($authUser->role, [
+            \App\Models\User::ROLE_COMPANY_ADMIN,
+            \App\Models\User::ROLE_DENTIST,
+            \App\Models\User::ROLE_NURSE,
+        ], true);
     @endphp
     <header class="topbar">
         <div class="container topbar-inner">
-            <div>
-                <div style="font-weight:700;">Dentio</div>
-                <div class="muted" style="font-size: 0.9rem;">
+            <div class="brand">
+                <div class="brand-title">Dentio</div>
+                <div class="muted brand-subtitle">
                     {{ $isPlatformAdmin ? 'Platform admin' : ($authUser->company?->name ?? 'Bez kompanije') }}
                 </div>
             </div>
@@ -245,7 +442,7 @@
                 @if($isPlatformAdmin)
                     <a class="{{ request()->routeIs('admin.*') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}">Platform</a>
                 @endif
-                @if($hasCompanyContext)
+                @if($isCompanyUser)
                     <a class="{{ request()->routeIs('dashboard.*') ? 'active' : '' }}" href="{{ route('dashboard.index') }}">Dashboard</a>
                     <a class="{{ request()->routeIs('patients.*') ? 'active' : '' }}" href="{{ route('patients.index') }}">Pacijenti</a>
                 @endif

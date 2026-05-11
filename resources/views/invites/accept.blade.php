@@ -1,7 +1,7 @@
 @extends('layouts.app', ['title' => 'Aktivacija naloga'])
 
 @section('content')
-    <section class="panel" style="max-width: 720px; margin: 20px auto;">
+    <section class="panel invite-card">
         <h2>Aktivacija naloga</h2>
         <p class="muted">Pozivnica za: <strong>{{ $invite->email }}</strong> (uloga: {{ $invite->role }})</p>
         <p class="muted">Vazi do {{ $invite->expires_at?->format('d.m.Y H:i') }}</p>

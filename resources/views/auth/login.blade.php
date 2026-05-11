@@ -1,7 +1,7 @@
 @extends('layouts.app', ['title' => 'Prijava'])
 
 @section('content')
-    <section class="panel" style="max-width: 480px; margin: 40px auto;">
+    <section class="panel auth-card">
         <h2>Prijava</h2>
         <p class="muted">Prijavite se na Dentio nalog.</p>
 

@@ -55,7 +55,7 @@
         </article>
     </section>
 
-    <section class="panel" style="margin-top: 14px;">
+    <section class="panel section">
         <h3>Poslate pozivnice</h3>
         @if($invites->isEmpty())
             <p class="muted">Nema poslatih pozivnica.</p>
@@ -90,7 +90,7 @@
                 @endforeach
                 </tbody>
             </table>
-            <div style="margin-top: 12px;">
+            <div class="section">
                 {{ $invites->links() }}
             </div>
         @endif
