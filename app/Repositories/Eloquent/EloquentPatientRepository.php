@@ -51,10 +51,15 @@ class EloquentPatientRepository implements PatientRepositoryInterface
             ->whereKey($patientId)
             ->with([
                 'primaryDentist',
+                'appointments' => fn ($query) => $query->latest('starts_at'),
                 'appointments.scheduledBy',
                 'appointments.assignedTo',
+                'interventions' => fn ($query) => $query->latest('intervention_date')->latest('id'),
                 'interventions.performedBy',
+                'tasks' => fn ($query) => $query->orderByRaw("CASE WHEN status = 'open' THEN 0 ELSE 1 END")->orderBy('due_date')->latest('id'),
                 'tasks.assignedTo',
+                'tasks.createdBy',
+                'tasks.closedBy',
                 'statusLogs.changedBy',
             ])
             ->withCount([
@@ -86,4 +91,3 @@ class EloquentPatientRepository implements PatientRepositoryInterface
             ->count();
     }
 }
-

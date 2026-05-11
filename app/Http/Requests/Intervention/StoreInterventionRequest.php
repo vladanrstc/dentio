@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Intervention;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreInterventionRequest extends FormRequest
@@ -17,14 +18,30 @@ class StoreInterventionRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->user()->company_id;
+        $patientId = (int) $this->route('patientId');
+
         return [
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'next_step' => ['nullable', 'string'],
             'intervention_date' => ['required', 'date'],
-            'appointment_id' => ['nullable', 'integer', 'exists:appointments,id'],
-            'performed_by_user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'assigned_to_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'appointment_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('appointments', 'id')
+                    ->where(fn ($query) => $query->where('company_id', $companyId)->where('patient_id', $patientId)),
+            ],
+            'performed_by_user_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
+            'assigned_to_user_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
             'task_due_date' => ['nullable', 'date'],
             'total_cost' => ['nullable', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],

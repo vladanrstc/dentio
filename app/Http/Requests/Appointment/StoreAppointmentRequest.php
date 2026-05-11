@@ -18,6 +18,8 @@ class StoreAppointmentRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->user()->company_id;
+
         return [
             'starts_at' => ['required', 'date'],
             'ends_at' => ['nullable', 'date', 'after:starts_at'],
@@ -26,11 +28,14 @@ class StoreAppointmentRequest extends FormRequest
                 Appointment::TYPE_INTERVENTION,
                 Appointment::TYPE_CONTROL,
             ])],
-            'assigned_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'assigned_user_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
             'notes' => ['nullable', 'string'],
             'reminder_staff_at' => ['nullable', 'date'],
             'reminder_patient_at' => ['nullable', 'date'],
         ];
     }
 }
-

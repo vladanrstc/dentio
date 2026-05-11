@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Patient;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePatientTaskRequest extends FormRequest
 {
@@ -16,11 +17,16 @@ class StorePatientTaskRequest extends FormRequest
      */
     public function rules(): array
     {
+        $companyId = (int) $this->user()->company_id;
+
         return [
             'description' => ['required', 'string', 'max:2000'],
             'due_date' => ['nullable', 'date'],
-            'assigned_to_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'assigned_to_user_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
         ];
     }
 }
-
