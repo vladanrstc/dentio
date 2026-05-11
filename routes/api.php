@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\StaffApiController;
 use App\Http\Controllers\Api\DashboardApiController;
 use App\Http\Controllers\Api\AuthApiController;
 use App\Http\Controllers\Api\PatientApiController;
@@ -19,6 +20,7 @@ Route::prefix('/v1')->name('api.v1.')->group(function (): void {
         Route::get('/me', [AuthApiController::class, 'me'])->name('me');
         Route::post('/logout', [AuthApiController::class, 'logout'])->name('logout');
         Route::get('/dashboard', [DashboardApiController::class, 'index'])->name('dashboard');
+        Route::get('/staff', [StaffApiController::class, 'index'])->name('staff.index');
 
         Route::prefix('/company')->name('company.')->group(function (): void {
             Route::get('/patients', [PatientApiController::class, 'index'])->name('patients.index');
