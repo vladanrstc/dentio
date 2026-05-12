@@ -7,8 +7,10 @@ use App\Models\Company;
 use App\Models\Intervention;
 use App\Models\Patient;
 use App\Models\PatientTask;
+use App\Models\Reminder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -291,6 +293,97 @@ class CompanyPatientApiTest extends TestCase
             ->assertUnauthorized()
             ->assertHeader('content-type', 'application/json')
             ->assertJsonMissingPath('data');
+    }
+
+    public function test_deleting_patient_removes_related_reminders_from_dashboard(): void
+    {
+        [$company, $user] = $this->companyUser();
+        $patient = $this->patient($company);
+        $appointment = Appointment::query()->create([
+            'company_id' => $company->id,
+            'patient_id' => $patient->id,
+            'scheduled_by_user_id' => $user->id,
+            'starts_at' => '2026-05-12 10:00:00',
+            'type' => Appointment::TYPE_CHECKUP,
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+
+        $intervention = Intervention::query()->create([
+            'company_id' => $company->id,
+            'patient_id' => $patient->id,
+            'appointment_id' => $appointment->id,
+            'performed_by_user_id' => $user->id,
+            'title' => 'Kontrola',
+            'intervention_date' => '2026-05-12',
+        ]);
+
+        PatientTask::query()->create([
+            'company_id' => $company->id,
+            'patient_id' => $patient->id,
+            'created_by_user_id' => $user->id,
+            'description' => 'Pozvati pacijenta',
+            'status' => PatientTask::STATUS_OPEN,
+        ]);
+
+        Reminder::query()->create([
+            'company_id' => $company->id,
+            'patient_id' => $patient->id,
+            'recipient_email' => 'patient-reminder@example.com',
+            'recipient_type' => Reminder::TYPE_PATIENT,
+            'remind_at' => Carbon::now()->subMinute(),
+            'subject' => 'Direktan podsetnik',
+            'body' => 'Test podsetnik',
+            'status' => Reminder::STATUS_PENDING,
+        ]);
+        Reminder::query()->create([
+            'company_id' => $company->id,
+            'appointment_id' => $appointment->id,
+            'recipient_email' => 'appointment-reminder@example.com',
+            'recipient_type' => Reminder::TYPE_PATIENT,
+            'remind_at' => Carbon::now()->subMinute(),
+            'subject' => 'Termin podsetnik',
+            'body' => 'Test podsetnik',
+            'status' => Reminder::STATUS_PENDING,
+        ]);
+        Reminder::query()->create([
+            'company_id' => $company->id,
+            'intervention_id' => $intervention->id,
+            'recipient_email' => 'intervention-reminder@example.com',
+            'recipient_type' => Reminder::TYPE_PATIENT,
+            'remind_at' => Carbon::now()->subMinute(),
+            'subject' => 'Intervencija podsetnik',
+            'body' => 'Test podsetnik',
+            'status' => Reminder::STATUS_PENDING,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.reminders_due', 3);
+
+        $this->deleteJson("/api/v1/company/patients/{$patient->id}")
+            ->assertOk();
+
+        $this->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.reminders_due', 0);
+
+        $this->assertDatabaseMissing('patients', [
+            'id' => $patient->id,
+        ]);
+        $this->assertDatabaseMissing('reminders', [
+            'patient_id' => $patient->id,
+        ]);
+        $this->assertDatabaseMissing('appointments', [
+            'patient_id' => $patient->id,
+        ]);
+        $this->assertDatabaseMissing('interventions', [
+            'patient_id' => $patient->id,
+        ]);
+        $this->assertDatabaseMissing('patient_tasks', [
+            'patient_id' => $patient->id,
+        ]);
     }
 
     /**

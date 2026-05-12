@@ -1,3 +1,7 @@
+@php
+    $acceptUrl = rtrim(config('app.frontend_url'), '/') . '/invites/accept/' . $invite->token;
+@endphp
+
 <!DOCTYPE html>
 <html lang="sr">
 <head>
@@ -9,9 +13,8 @@
 <p>Dobili ste pozivnicu da pristupite Dentio platformi.</p>
 <p>
     Kliknite na link za aktivaciju naloga:<br>
-    <a href="{{ route('invites.accept.show', $invite->token) }}">{{ route('invites.accept.show', $invite->token) }}</a>
+    <a href="{{ $acceptUrl }}">{{ $acceptUrl }}</a>
 </p>
 <p>Pozivnica vazi do: {{ $invite->expires_at?->format('d.m.Y H:i') }}</p>
 </body>
 </html>
-

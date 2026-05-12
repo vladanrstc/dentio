@@ -3,6 +3,7 @@
 namespace App\Repositories\Eloquent;
 
 use App\Models\Invite;
+use App\Models\User;
 use App\Repositories\Contracts\InviteRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -12,6 +13,13 @@ class EloquentInviteRepository implements InviteRepositoryInterface
     public function create(array $data): Invite
     {
         return Invite::query()->create($data);
+    }
+
+    public function findByToken(string $token): ?Invite
+    {
+        return Invite::query()
+            ->where('token', $token)
+            ->first();
     }
 
     public function findValidByToken(string $token): ?Invite
@@ -27,6 +35,7 @@ class EloquentInviteRepository implements InviteRepositoryInterface
     {
         return Invite::query()
             ->where('company_id', $companyId)
+            ->whereIn('role', [User::ROLE_DENTIST, User::ROLE_NURSE])
             ->latest()
             ->paginate($perPage);
     }
@@ -40,4 +49,3 @@ class EloquentInviteRepository implements InviteRepositoryInterface
         return $invite;
     }
 }
-

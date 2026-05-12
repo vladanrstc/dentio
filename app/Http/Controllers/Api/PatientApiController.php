@@ -14,14 +14,20 @@ use App\Http\Resources\InterventionResource;
 use App\Http\Resources\PatientCollection;
 use App\Http\Resources\PatientResource;
 use App\Http\Resources\PatientTaskResource;
+use App\Models\Appointment;
+use App\Models\Intervention;
 use App\Models\Patient;
+use App\Models\PatientTask;
+use App\Models\Reminder;
 use App\Repositories\Contracts\PatientTaskRepositoryInterface;
 use App\Services\AppointmentService;
 use App\Services\InterventionService;
 use App\Services\PatientService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
 class PatientApiController extends Controller
 {
@@ -68,6 +74,46 @@ class PatientApiController extends Controller
         $patient = $this->patientService->findForUser($request->user(), $patientId, true);
 
         return new PatientResource($patient);
+    }
+
+    public function destroy(Request $request, int $patientId): JsonResponse
+    {
+        $patient = $this->patientService->findForUser($request->user(), $patientId);
+
+        abort_if($patient === null, Response::HTTP_NOT_FOUND);
+
+        DB::transaction(function () use ($patient): void {
+            $appointmentIds = Appointment::query()
+                ->where('patient_id', $patient->id)
+                ->pluck('id');
+            $interventionIds = Intervention::query()
+                ->where('patient_id', $patient->id)
+                ->pluck('id');
+
+            Reminder::query()
+                ->where(function (Builder $query) use ($patient, $appointmentIds, $interventionIds): void {
+                    $query->where('patient_id', $patient->id)
+                        ->when($appointmentIds->isNotEmpty(), fn (Builder $inner) => $inner->orWhereIn('appointment_id', $appointmentIds))
+                        ->when($interventionIds->isNotEmpty(), fn (Builder $inner) => $inner->orWhereIn('intervention_id', $interventionIds));
+                })
+                ->delete();
+
+            PatientTask::query()
+                ->where('patient_id', $patient->id)
+                ->delete();
+            Intervention::query()
+                ->where('patient_id', $patient->id)
+                ->delete();
+            Appointment::query()
+                ->where('patient_id', $patient->id)
+                ->delete();
+
+            $patient->delete();
+        });
+
+        return response()->json([
+            'message' => 'Pacijent je obrisan.',
+        ]);
     }
 
     public function storeAppointment(StoreAppointmentRequest $request, int $patientId): JsonResponse

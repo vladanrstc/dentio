@@ -21,8 +21,7 @@ class InviteService
         private readonly InviteRepositoryInterface $inviteRepository,
         private readonly CompanyRepositoryInterface $companyRepository,
         private readonly UserRepositoryInterface $userRepository,
-    ) {
-    }
+    ) {}
 
     public function sendOwnerInvite(string $email, ?int $expiresInDays = null): Invite
     {
@@ -32,7 +31,7 @@ class InviteService
             'role' => User::ROLE_COMPANY_ADMIN,
             'token' => Str::random(64),
             'invited_by_user_id' => null,
-            'expires_at' => Carbon::now()->addDays($expiresInDays ?? 14),
+            'expires_at' => $this->expiresAt($expiresInDays),
             'metadata' => [],
         ]);
 
@@ -53,7 +52,7 @@ class InviteService
             'role' => $role,
             'token' => Str::random(64),
             'invited_by_user_id' => $inviter->id,
-            'expires_at' => Carbon::now()->addDays($expiresInDays ?? 7),
+            'expires_at' => $this->expiresAt($expiresInDays),
             'metadata' => [],
         ]);
 
@@ -65,6 +64,11 @@ class InviteService
     public function findValidInviteByToken(string $token): ?Invite
     {
         return $this->inviteRepository->findValidByToken($token);
+    }
+
+    public function findInviteByToken(string $token): ?Invite
+    {
+        return $this->inviteRepository->findByToken($token);
     }
 
     public function acceptInvite(Invite $invite, array $data): User
@@ -111,5 +115,17 @@ class InviteService
             return $user;
         });
     }
-}
 
+    private function expiresAt(?int $expiresInDays = null): Carbon
+    {
+        $minimum = Carbon::now()->addMinutes(10);
+
+        if ($expiresInDays === null) {
+            return $minimum;
+        }
+
+        $requested = Carbon::now()->addDays($expiresInDays);
+
+        return $requested->greaterThan($minimum) ? $requested : $minimum;
+    }
+}
