@@ -9,6 +9,7 @@ use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\PatientService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class PatientTaskController extends Controller
@@ -24,6 +25,7 @@ class PatientTaskController extends Controller
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId);
         abort_if($patient === null, 404);
+        Gate::authorize('createTask', $patient);
 
         $dentists = $this->userRepository->forCompanyByRoles((int) $request->user()->company_id, [
             User::ROLE_DENTIST,
@@ -40,6 +42,7 @@ class PatientTaskController extends Controller
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId);
         abort_if($patient === null, 404);
+        Gate::authorize('createTask', $patient);
 
         $this->patientService->addTask($request->user(), $patient, $request->validated());
 
@@ -53,6 +56,7 @@ class PatientTaskController extends Controller
 
         $task = $this->patientTaskRepository->findForCompanyPatient((int) $request->user()->company_id, $patient->id, $taskId);
         abort_if($task === null, 404);
+        Gate::authorize('complete', $task);
 
         $this->patientService->completeTask($request->user(), $task);
 

@@ -9,6 +9,7 @@ use App\Services\AppointmentService;
 use App\Services\PatientService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class AppointmentController extends Controller
@@ -24,6 +25,7 @@ class AppointmentController extends Controller
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId);
         abort_if($patient === null, 404);
+        Gate::authorize('createAppointment', $patient);
 
         $dentists = $this->userRepository->forCompanyByRoles((int) $request->user()->company_id, [
             User::ROLE_DENTIST,
@@ -40,6 +42,7 @@ class AppointmentController extends Controller
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId);
         abort_if($patient === null, 404);
+        Gate::authorize('createAppointment', $patient);
 
         $this->appointmentService->schedule($request->user(), $patient, $request->validated());
 

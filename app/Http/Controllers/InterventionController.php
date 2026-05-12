@@ -9,6 +9,7 @@ use App\Services\InterventionService;
 use App\Services\PatientService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class InterventionController extends Controller
@@ -24,6 +25,7 @@ class InterventionController extends Controller
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId, true);
         abort_if($patient === null, 404);
+        Gate::authorize('createIntervention', $patient);
 
         $dentists = $this->userRepository->forCompanyByRoles((int) $request->user()->company_id, [
             User::ROLE_DENTIST,
@@ -42,6 +44,7 @@ class InterventionController extends Controller
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId);
         abort_if($patient === null, 404);
+        Gate::authorize('createIntervention', $patient);
 
         $this->interventionService->record($request->user(), $patient, $request->validated());
 

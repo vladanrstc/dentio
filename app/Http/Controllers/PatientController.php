@@ -9,6 +9,7 @@ use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\PatientService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class PatientController extends Controller
@@ -59,6 +60,7 @@ class PatientController extends Controller
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId, true);
         abort_if($patient === null, 404);
+        Gate::authorize('view', $patient);
 
         $dentists = $this->userRepository->forCompanyByRoles((int) $request->user()->company_id, [
             User::ROLE_DENTIST,
@@ -75,6 +77,7 @@ class PatientController extends Controller
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId);
         abort_if($patient === null, 404);
+        Gate::authorize('update', $patient);
 
         $dentists = $this->userRepository->forCompanyByRoles((int) $request->user()->company_id, [
             User::ROLE_DENTIST,
@@ -91,6 +94,7 @@ class PatientController extends Controller
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId);
         abort_if($patient === null, 404);
+        Gate::authorize('update', $patient);
 
         $this->patientService->update($request->user(), $patient, $request->validated());
 

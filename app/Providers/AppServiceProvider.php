@@ -2,6 +2,16 @@
 
 namespace App\Providers;
 
+use App\Models\Appointment;
+use App\Models\Company;
+use App\Models\Intervention;
+use App\Models\Patient;
+use App\Models\PatientTask;
+use App\Policies\AppointmentPolicy;
+use App\Policies\CompanyPolicy;
+use App\Policies\InterventionPolicy;
+use App\Policies\PatientPolicy;
+use App\Policies\PatientTaskPolicy;
 use App\Repositories\Contracts\AppointmentRepositoryInterface;
 use App\Repositories\Contracts\CompanyRepositoryInterface;
 use App\Repositories\Contracts\InterventionRepositoryInterface;
@@ -20,6 +30,7 @@ use App\Repositories\Eloquent\EloquentReminderRepository;
 use App\Repositories\Eloquent\EloquentUserRepository;
 use App\Services\Calendar\CalendarSyncServiceInterface;
 use App\Services\Calendar\GoogleCalendarSyncService;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -45,6 +56,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Gate::policy(Patient::class, PatientPolicy::class);
+        Gate::policy(Appointment::class, AppointmentPolicy::class);
+        Gate::policy(Intervention::class, InterventionPolicy::class);
+        Gate::policy(PatientTask::class, PatientTaskPolicy::class);
+        Gate::policy(Company::class, CompanyPolicy::class);
     }
 }
