@@ -2,14 +2,20 @@
 
 namespace App\Http\Requests\Intervention;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreInterventionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        return $user !== null
+            && $user->company_id !== null
+            && in_array($user->role, [User::ROLE_COMPANY_ADMIN, User::ROLE_DENTIST, User::ROLE_NURSE], true);
     }
 
     /**
@@ -22,9 +28,23 @@ class StoreInterventionRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'next_step' => ['nullable', 'string'],
             'intervention_date' => ['required', 'date'],
-            'appointment_id' => ['nullable', 'integer', 'exists:appointments,id'],
-            'performed_by_user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'assigned_to_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'appointment_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('appointments', 'id')
+                    ->where('company_id', $this->companyId())
+                    ->where('patient_id', $this->patientId()),
+            ],
+            'performed_by_user_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where('company_id', $this->companyId()),
+            ],
+            'assigned_to_user_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where('company_id', $this->companyId()),
+            ],
             'task_due_date' => ['nullable', 'date'],
             'total_cost' => ['nullable', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
@@ -43,5 +63,15 @@ class StoreInterventionRequest extends FormRequest
                 $validator->errors()->add('paid_amount', 'Placeni iznos ne moze biti veci od ukupne cene intervencije.');
             }
         });
+    }
+
+    private function companyId(): int
+    {
+        return (int) $this->user()?->company_id;
+    }
+
+    private function patientId(): int
+    {
+        return (int) $this->route('patientId');
     }
 }
