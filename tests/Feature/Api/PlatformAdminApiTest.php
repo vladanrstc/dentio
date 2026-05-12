@@ -120,6 +120,70 @@ class PlatformAdminApiTest extends TestCase
         Mail::assertSent(InviteMail::class);
     }
 
+    public function test_duplicate_pending_owner_invite_is_blocked(): void
+    {
+        Mail::fake();
+        $admin = $this->platformAdmin();
+        Invite::query()->create([
+            'company_id' => null,
+            'email' => 'owner-duplicate@example.com',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'token' => 'token-'.str()->random(16),
+            'expires_at' => Carbon::now()->addMinutes(10),
+            'metadata' => [],
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/v1/admin/invite-owner', [
+            'email' => 'owner-duplicate@example.com',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertSame(1, Invite::query()
+            ->whereNull('company_id')
+            ->where('email', 'owner-duplicate@example.com')
+            ->where('role', User::ROLE_COMPANY_ADMIN)
+            ->count());
+    }
+
+    public function test_expired_or_revoked_owner_invite_allows_new_invite(): void
+    {
+        Mail::fake();
+        $admin = $this->platformAdmin();
+        Invite::query()->create([
+            'company_id' => null,
+            'email' => 'expired-owner@example.com',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'token' => 'token-'.str()->random(16),
+            'expires_at' => Carbon::now()->subMinute(),
+            'metadata' => [],
+        ]);
+        Invite::query()->create([
+            'company_id' => null,
+            'email' => 'revoked-owner@example.com',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'token' => 'token-'.str()->random(16),
+            'expires_at' => Carbon::now()->addMinutes(10),
+            'revoked_at' => Carbon::now(),
+            'metadata' => [],
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/v1/admin/invite-owner', [
+            'email' => 'expired-owner@example.com',
+        ])->assertCreated();
+
+        $this->postJson('/api/v1/admin/invite-owner', [
+            'email' => 'revoked-owner@example.com',
+        ])->assertCreated();
+
+        $this->assertSame(2, Invite::query()->where('email', 'expired-owner@example.com')->count());
+        $this->assertSame(2, Invite::query()->where('email', 'revoked-owner@example.com')->count());
+    }
+
     public function test_platform_admin_can_delete_company_and_its_invites(): void
     {
         $admin = $this->platformAdmin();
@@ -134,7 +198,10 @@ class PlatformAdminApiTest extends TestCase
             ->assertJsonPath('data.deleted', true);
 
         $this->assertDatabaseMissing('companies', ['id' => $company->id]);
-        $this->assertDatabaseMissing('invites', ['id' => $invite->id]);
+        $invite = $invite->fresh();
+        $this->assertNotNull($invite);
+        $this->assertNull($invite->company_id);
+        $this->assertNotNull($invite->revoked_at);
     }
 
     public function test_admin_dashboard_staff_total_counts_only_users_in_existing_companies(): void
@@ -202,7 +269,7 @@ class PlatformAdminApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.deleted', true);
 
-        $this->assertDatabaseMissing('invites', ['id' => $invite->id]);
+        $this->assertNotNull($invite->fresh()->revoked_at);
     }
 
     public function test_platform_admin_cannot_delete_accepted_invite(): void
@@ -219,9 +286,64 @@ class PlatformAdminApiTest extends TestCase
 
         $this->deleteJson("/api/v1/admin/invites/{$invite->id}")
             ->assertForbidden()
-            ->assertJsonPath('message', 'Prihvacene pozivnice ne mogu da se brisu.');
+            ->assertJsonPath('message', 'Prihvacene pozivnice ne mogu da se opozovu.');
 
         $this->assertDatabaseHas('invites', ['id' => $invite->id]);
+    }
+
+    public function test_platform_admin_can_resend_pending_or_expired_invite(): void
+    {
+        Mail::fake();
+        $admin = $this->platformAdmin();
+        [$company] = $this->companyWithUser();
+        $pendingInvite = $this->invite($company);
+        $expiredInvite = $this->invite($company);
+        $expiredInvite->forceFill([
+            'email' => 'expired-admin-resend@example.com',
+            'expires_at' => Carbon::now()->subDay(),
+        ])->save();
+        $oldPendingToken = $pendingInvite->token;
+        $oldExpiredToken = $expiredInvite->token;
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/v1/admin/invites/{$pendingInvite->id}/resend")
+            ->assertOk()
+            ->assertJsonPath('data.id', $pendingInvite->id);
+
+        $this->postJson("/api/v1/admin/invites/{$expiredInvite->id}/resend")
+            ->assertOk()
+            ->assertJsonPath('data.id', $expiredInvite->id);
+
+        $this->assertNotSame($oldPendingToken, $pendingInvite->fresh()->token);
+        $this->assertNotSame($oldExpiredToken, $expiredInvite->fresh()->token);
+        $this->assertTrue($pendingInvite->fresh()->expires_at->greaterThan(Carbon::now()));
+        $this->assertTrue($expiredInvite->fresh()->expires_at->greaterThan(Carbon::now()));
+        Mail::assertSent(InviteMail::class, 2);
+    }
+
+    public function test_platform_admin_cannot_resend_accepted_or_revoked_invite(): void
+    {
+        $admin = $this->platformAdmin();
+        [$company, $companyUser] = $this->companyWithUser();
+        $acceptedInvite = $this->invite($company);
+        $acceptedInvite->forceFill([
+            'accepted_at' => Carbon::now(),
+            'accepted_by_user_id' => $companyUser->id,
+        ])->save();
+        $revokedInvite = $this->invite($company);
+        $revokedInvite->forceFill([
+            'email' => 'revoked-admin-resend@example.com',
+            'revoked_at' => Carbon::now(),
+        ])->save();
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/v1/admin/invites/{$acceptedInvite->id}/resend")
+            ->assertUnprocessable();
+
+        $this->postJson("/api/v1/admin/invites/{$revokedInvite->id}/resend")
+            ->assertUnprocessable();
     }
 
     public function test_company_admin_cannot_access_admin_dashboard(): void

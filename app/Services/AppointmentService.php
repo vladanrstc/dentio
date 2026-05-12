@@ -10,6 +10,7 @@ use App\Repositories\Contracts\AppointmentRepositoryInterface;
 use App\Repositories\Contracts\ReminderRepositoryInterface;
 use App\Services\Calendar\CalendarSyncServiceInterface;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class AppointmentService
@@ -18,14 +19,20 @@ class AppointmentService
         private readonly AppointmentRepositoryInterface $appointmentRepository,
         private readonly ReminderRepositoryInterface $reminderRepository,
         private readonly CalendarSyncServiceInterface $calendarSyncService,
-    ) {
-    }
+    ) {}
 
     public function schedule(User $actor, Patient $patient, array $data): Appointment
     {
         if ($patient->company_id !== $this->companyIdOrFail($actor)) {
             throw new RuntimeException('Pacijent ne pripada kompaniji korisnika.');
         }
+
+        $this->ensureDoctorIsAvailable(
+            (int) $patient->company_id,
+            $data['assigned_user_id'] ?? null,
+            $data['starts_at'],
+            $data['ends_at'] ?? null,
+        );
 
         $appointment = $this->appointmentRepository->create([
             'company_id' => $patient->company_id,
@@ -52,6 +59,49 @@ class AppointmentService
         $this->createReminderRowsForAppointment($appointment, $patient, $actor);
 
         return $appointment;
+    }
+
+    public function cancel(User $actor, Appointment $appointment, ?string $reason = null): Appointment
+    {
+        if ($appointment->company_id !== $this->companyIdOrFail($actor)) {
+            throw new RuntimeException('Termin ne pripada kompaniji korisnika.');
+        }
+
+        $appointment->status = Appointment::STATUS_CANCELLED;
+        $appointment->cancel_reason = $reason;
+        $appointment->save();
+
+        return $appointment;
+    }
+
+    private function ensureDoctorIsAvailable(int $companyId, mixed $assignedUserId, mixed $startsAt, mixed $endsAt): void
+    {
+        if ($assignedUserId === null || $endsAt === null) {
+            return;
+        }
+
+        $startsAt = Carbon::parse($startsAt);
+        $endsAt = Carbon::parse($endsAt);
+
+        $overlaps = Appointment::query()
+            ->where('company_id', $companyId)
+            ->where('assigned_user_id', $assignedUserId)
+            ->where('status', Appointment::STATUS_SCHEDULED)
+            ->where('starts_at', '<', $endsAt)
+            ->where(function ($query) use ($startsAt): void {
+                $query->where('ends_at', '>', $startsAt)
+                    ->orWhere(function ($inner) use ($startsAt): void {
+                        $inner->whereNull('ends_at')
+                            ->where('starts_at', '>', $startsAt);
+                    });
+            })
+            ->exists();
+
+        if ($overlaps) {
+            throw ValidationException::withMessages([
+                'assigned_user_id' => ['Izabrani doktor već ima zakazan termin u tom periodu.'],
+            ]);
+        }
     }
 
     private function createReminderRowsForAppointment(Appointment $appointment, Patient $patient, User $actor): void
@@ -108,4 +158,3 @@ class AppointmentService
         return (int) $user->company_id;
     }
 }
-

@@ -49,6 +49,7 @@ class EloquentCompanyRepository implements CompanyRepositoryInterface
                 'appointments as scheduled_appointments_count' => fn (Builder $query) => $query->where('status', Appointment::STATUS_SCHEDULED),
                 'invites as pending_invites_count' => fn (Builder $query) => $query
                     ->whereNull('accepted_at')
+                    ->whereNull('revoked_at')
                     ->where('expires_at', '>', Carbon::now()),
             ])
             ->orderBy('name')
@@ -70,6 +71,7 @@ class EloquentCompanyRepository implements CompanyRepositoryInterface
                 'interventions',
                 'invites as pending_invites_count' => fn (Builder $query) => $query
                     ->whereNull('accepted_at')
+                    ->whereNull('revoked_at')
                     ->where('expires_at', '>', Carbon::now()),
             ])
             ->with([

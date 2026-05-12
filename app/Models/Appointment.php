@@ -35,6 +35,7 @@ class Appointment extends Model
         'ends_at',
         'type',
         'status',
+        'cancel_reason',
         'notes',
         'google_event_id',
         'calendar_synced_at',
@@ -86,4 +87,3 @@ class Appointment extends Model
         return $this->hasMany(Reminder::class);
     }
 }
-

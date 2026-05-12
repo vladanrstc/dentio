@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class InviteService
@@ -25,9 +26,12 @@ class InviteService
 
     public function sendOwnerInvite(string $email, ?int $expiresInDays = null): Invite
     {
+        $email = mb_strtolower(trim($email));
+        $this->ensureNoActiveDuplicateInvite(null, $email, User::ROLE_COMPANY_ADMIN);
+
         $invite = $this->inviteRepository->create([
             'company_id' => null,
-            'email' => mb_strtolower(trim($email)),
+            'email' => $email,
             'role' => User::ROLE_COMPANY_ADMIN,
             'token' => Str::random(64),
             'invited_by_user_id' => null,
@@ -46,9 +50,12 @@ class InviteService
             throw new RuntimeException('Korisnik nema kompaniju.');
         }
 
+        $email = mb_strtolower(trim($email));
+        $this->ensureNoActiveDuplicateInvite((int) $inviter->company_id, $email, $role);
+
         $invite = $this->inviteRepository->create([
             'company_id' => $inviter->company_id,
-            'email' => mb_strtolower(trim($email)),
+            'email' => $email,
             'role' => $role,
             'token' => Str::random(64),
             'invited_by_user_id' => $inviter->id,
@@ -114,6 +121,57 @@ class InviteService
 
             return $user;
         });
+    }
+
+    public function revokeInvite(Invite $invite): Invite
+    {
+        if ($invite->accepted_at !== null) {
+            throw ValidationException::withMessages([
+                'invite' => ['Prihvacene pozivnice ne mogu da se opozovu.'],
+            ]);
+        }
+
+        if ($invite->revoked_at === null) {
+            $invite->revoked_at = Carbon::now();
+            $invite->save();
+        }
+
+        return $invite;
+    }
+
+    public function resendInvite(Invite $invite): Invite
+    {
+        if ($invite->accepted_at !== null || $invite->revoked_at !== null) {
+            throw ValidationException::withMessages([
+                'invite' => ['Samo pending ili istekla pozivnica moze ponovo da se posalje.'],
+            ]);
+        }
+
+        $invite->token = Str::random(64);
+        $invite->expires_at = Carbon::now()->addMinutes(10);
+        $invite->save();
+
+        Mail::to($invite->email)->send(new InviteMail($invite));
+
+        return $invite;
+    }
+
+    private function ensureNoActiveDuplicateInvite(?int $companyId, string $email, string $role): void
+    {
+        $exists = Invite::query()
+            ->when($companyId === null, fn ($query) => $query->whereNull('company_id'), fn ($query) => $query->where('company_id', $companyId))
+            ->where('email', $email)
+            ->where('role', $role)
+            ->whereNull('accepted_at')
+            ->whereNull('revoked_at')
+            ->where('expires_at', '>', Carbon::now())
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'email' => ['Vec postoji aktivna pozivnica za ovu email adresu i rolu.'],
+            ]);
+        }
     }
 
     private function expiresAt(?int $expiresInDays = null): Carbon

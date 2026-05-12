@@ -20,9 +20,10 @@ class CompanyInviteResource extends JsonResource
             'id' => $this->id,
             'email' => $this->email,
             'role' => $this->role,
-            'status' => $this->accepted_at !== null ? 'accepted' : ($this->expires_at?->isPast() ? 'expired' : 'pending'),
+            'status' => $this->accepted_at !== null ? 'accepted' : ($this->revoked_at !== null ? 'revoked' : ($this->expires_at?->isPast() ? 'expired' : 'pending')),
             'expires_at' => $this->expires_at?->toIso8601String(),
             'accepted_at' => $this->accepted_at?->toIso8601String(),
+            'revoked_at' => $this->revoked_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

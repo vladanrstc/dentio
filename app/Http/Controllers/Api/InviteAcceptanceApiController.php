@@ -33,6 +33,10 @@ class InviteAcceptanceApiController extends Controller
             abort(Response::HTTP_GONE, 'Pozivnica je vec prihvacena.');
         }
 
+        if ($invite->revoked_at !== null) {
+            abort(Response::HTTP_GONE, 'Pozivnica je opozvana.');
+        }
+
         if ($invite->expires_at === null || $invite->expires_at->isPast()) {
             return response()->json([
                 'message' => 'Pozivnica je istekla.',

@@ -66,16 +66,31 @@ class CompanyTeamApiController extends Controller
         abort_if($invite === null, Response::HTTP_NOT_FOUND);
 
         if ($invite->accepted_at !== null) {
-            abort(Response::HTTP_FORBIDDEN, 'Prihvacene pozivnice ne mogu da se brisu.');
+            abort(Response::HTTP_FORBIDDEN, 'Prihvacene pozivnice ne mogu da se opozovu.');
         }
 
-        $invite->delete();
+        $this->inviteService->revokeInvite($invite);
 
         return response()->json([
             'data' => [
                 'deleted' => true,
             ],
         ]);
+    }
+
+    public function resendInvite(Request $request, int $inviteId): JsonResponse
+    {
+        $invite = Invite::query()
+            ->where('company_id', $request->user()->company_id)
+            ->whereIn('role', [User::ROLE_DENTIST, User::ROLE_NURSE])
+            ->whereKey($inviteId)
+            ->first();
+
+        abort_if($invite === null, Response::HTTP_NOT_FOUND);
+
+        $invite = $this->inviteService->resendInvite($invite);
+
+        return (new CompanyInviteResource($invite))->response();
     }
 
     public function destroy(Request $request, int $userId): JsonResponse
@@ -91,15 +106,7 @@ class CompanyTeamApiController extends Controller
             abort(Response::HTTP_FORBIDDEN, 'Nije dozvoljeno brisanje admin naloga.');
         }
 
-        $email = mb_strtolower(trim((string) $teamMember->email));
-        $companyId = $teamMember->company_id;
-
         $teamMember->delete();
-
-        Invite::query()
-            ->where('company_id', $companyId)
-            ->whereRaw('LOWER(email) = ?', [$email])
-            ->delete();
 
         return response()->json([
             'data' => [

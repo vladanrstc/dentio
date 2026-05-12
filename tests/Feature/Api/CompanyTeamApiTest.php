@@ -131,6 +131,62 @@ class CompanyTeamApiTest extends TestCase
         Mail::assertSent(InviteMail::class);
     }
 
+    public function test_duplicate_pending_team_invite_is_blocked(): void
+    {
+        Mail::fake();
+        [$company, $admin] = $this->companyUser(User::ROLE_COMPANY_ADMIN);
+        $this->invite($company, User::ROLE_DENTIST)->forceFill([
+            'email' => 'duplicate@example.com',
+            'expires_at' => Carbon::now()->addMinutes(10),
+        ])->save();
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/v1/company/invites', [
+            'email' => 'duplicate@example.com',
+            'role' => User::ROLE_DENTIST,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
+
+        $this->assertSame(1, Invite::query()
+            ->where('company_id', $company->id)
+            ->where('email', 'duplicate@example.com')
+            ->where('role', User::ROLE_DENTIST)
+            ->count());
+    }
+
+    public function test_expired_or_revoked_team_invite_allows_new_invite(): void
+    {
+        Mail::fake();
+        [$company, $admin] = $this->companyUser(User::ROLE_COMPANY_ADMIN);
+        $expired = $this->invite($company, User::ROLE_DENTIST);
+        $expired->forceFill([
+            'email' => 'expired-team@example.com',
+            'expires_at' => Carbon::now()->subMinute(),
+        ])->save();
+        $revoked = $this->invite($company, User::ROLE_NURSE);
+        $revoked->forceFill([
+            'email' => 'revoked-team@example.com',
+            'revoked_at' => Carbon::now(),
+        ])->save();
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/v1/company/invites', [
+            'email' => 'expired-team@example.com',
+            'role' => User::ROLE_DENTIST,
+        ])->assertCreated();
+
+        $this->postJson('/api/v1/company/invites', [
+            'email' => 'revoked-team@example.com',
+            'role' => User::ROLE_NURSE,
+        ])->assertCreated();
+
+        $this->assertSame(2, Invite::query()->where('email', 'expired-team@example.com')->count());
+        $this->assertSame(2, Invite::query()->where('email', 'revoked-team@example.com')->count());
+    }
+
     public function test_company_admin_can_delete_pending_or_expired_invite_from_own_company(): void
     {
         [$company, $admin] = $this->companyUser(User::ROLE_COMPANY_ADMIN);
@@ -148,8 +204,8 @@ class CompanyTeamApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.deleted', true);
 
-        $this->assertDatabaseMissing('invites', ['id' => $pendingInvite->id]);
-        $this->assertDatabaseMissing('invites', ['id' => $expiredInvite->id]);
+        $this->assertNotNull($pendingInvite->fresh()->revoked_at);
+        $this->assertNotNull($expiredInvite->fresh()->revoked_at);
     }
 
     public function test_company_admin_cannot_delete_accepted_invite_or_invite_from_other_company(): void
@@ -167,7 +223,7 @@ class CompanyTeamApiTest extends TestCase
 
         $this->deleteJson("/api/v1/company/invites/{$acceptedInvite->id}")
             ->assertForbidden()
-            ->assertJsonPath('message', 'Prihvacene pozivnice ne mogu da se brisu.');
+            ->assertJsonPath('message', 'Prihvacene pozivnice ne mogu da se opozovu.');
 
         $this->deleteJson("/api/v1/company/invites/{$otherInvite->id}")
             ->assertNotFound();
@@ -227,12 +283,16 @@ class CompanyTeamApiTest extends TestCase
         ]);
     }
 
-    public function test_deleting_team_member_deletes_accepted_invite_for_same_company_and_email(): void
+    public function test_deleting_team_member_keeps_accepted_invite_for_audit_history(): void
     {
         [$company, $admin] = $this->companyUser(User::ROLE_COMPANY_ADMIN);
         $dentist = $this->user($company, User::ROLE_DENTIST, 'accepted-dentist');
         $invite = $this->invite($company, User::ROLE_DENTIST);
-        $invite->forceFill(['email' => $dentist->email])->save();
+        $invite->forceFill([
+            'email' => $dentist->email,
+            'accepted_at' => Carbon::now(),
+            'accepted_by_user_id' => $dentist->id,
+        ])->save();
 
         Sanctum::actingAs($admin);
 
@@ -241,10 +301,57 @@ class CompanyTeamApiTest extends TestCase
             ->assertJsonPath('data.deleted', true);
 
         $this->assertDatabaseMissing('users', ['id' => $dentist->id]);
-        $this->assertDatabaseMissing('invites', [
+        $this->assertDatabaseHas('invites', [
             'company_id' => $company->id,
             'email' => $dentist->email,
         ]);
+    }
+
+    public function test_company_admin_can_resend_pending_or_expired_invite(): void
+    {
+        Mail::fake();
+        [$company, $admin] = $this->companyUser(User::ROLE_COMPANY_ADMIN);
+        $pendingInvite = $this->invite($company, User::ROLE_DENTIST);
+        $expiredInvite = $this->invite($company, User::ROLE_NURSE);
+        $expiredInvite->forceFill(['expires_at' => Carbon::now()->subDay()])->save();
+        $oldPendingToken = $pendingInvite->token;
+        $oldExpiredToken = $expiredInvite->token;
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/v1/company/invites/{$pendingInvite->id}/resend")
+            ->assertOk()
+            ->assertJsonPath('data.id', $pendingInvite->id);
+
+        $this->postJson("/api/v1/company/invites/{$expiredInvite->id}/resend")
+            ->assertOk()
+            ->assertJsonPath('data.id', $expiredInvite->id);
+
+        $this->assertNotSame($oldPendingToken, $pendingInvite->fresh()->token);
+        $this->assertNotSame($oldExpiredToken, $expiredInvite->fresh()->token);
+        $this->assertTrue($pendingInvite->fresh()->expires_at->greaterThan(Carbon::now()));
+        $this->assertTrue($expiredInvite->fresh()->expires_at->greaterThan(Carbon::now()));
+        Mail::assertSent(InviteMail::class, 2);
+    }
+
+    public function test_company_admin_cannot_resend_accepted_or_revoked_invite(): void
+    {
+        [$company, $admin] = $this->companyUser(User::ROLE_COMPANY_ADMIN);
+        $acceptedInvite = $this->invite($company, User::ROLE_DENTIST);
+        $acceptedInvite->forceFill([
+            'accepted_at' => Carbon::now(),
+            'accepted_by_user_id' => $admin->id,
+        ])->save();
+        $revokedInvite = $this->invite($company, User::ROLE_NURSE);
+        $revokedInvite->forceFill(['revoked_at' => Carbon::now()])->save();
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/v1/company/invites/{$acceptedInvite->id}/resend")
+            ->assertUnprocessable();
+
+        $this->postJson("/api/v1/company/invites/{$revokedInvite->id}/resend")
+            ->assertUnprocessable();
     }
 
     public function test_company_admin_cannot_delete_company_admin_or_platform_admin(): void

@@ -71,7 +71,9 @@ class PlatformAdminApiController extends Controller
 
         Invite::query()
             ->where('company_id', $company->id)
-            ->delete();
+            ->whereNull('accepted_at')
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]);
 
         $company->delete();
 
@@ -88,15 +90,25 @@ class PlatformAdminApiController extends Controller
         abort_if($invite === null, Response::HTTP_NOT_FOUND);
 
         if ($invite->accepted_at !== null) {
-            abort(Response::HTTP_FORBIDDEN, 'Prihvacene pozivnice ne mogu da se brisu.');
+            abort(Response::HTTP_FORBIDDEN, 'Prihvacene pozivnice ne mogu da se opozovu.');
         }
 
-        $invite->delete();
+        $this->inviteService->revokeInvite($invite);
 
         return response()->json([
             'data' => [
                 'deleted' => true,
             ],
         ]);
+    }
+
+    public function resendInvite(int $inviteId): JsonResponse
+    {
+        $invite = Invite::query()->find($inviteId);
+        abort_if($invite === null, Response::HTTP_NOT_FOUND);
+
+        $invite = $this->inviteService->resendInvite($invite);
+
+        return (new AdminInviteResource($invite))->response();
     }
 }

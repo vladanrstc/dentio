@@ -27,6 +27,7 @@ class EloquentInviteRepository implements InviteRepositoryInterface
         return Invite::query()
             ->where('token', $token)
             ->whereNull('accepted_at')
+            ->whereNull('revoked_at')
             ->where('expires_at', '>', Carbon::now())
             ->first();
     }

@@ -33,6 +33,7 @@ Route::prefix('/v1')->name('api.v1.')->group(function (): void {
             Route::get('/invites', [CompanyTeamApiController::class, 'invites'])->middleware('role:company_admin')->name('invites.index');
             Route::post('/invites', [CompanyTeamApiController::class, 'storeInvite'])->middleware('role:company_admin')->name('invites.store');
             Route::delete('/invites/{inviteId}', [CompanyTeamApiController::class, 'destroyInvite'])->middleware('role:company_admin')->name('invites.destroy');
+            Route::post('/invites/{inviteId}/resend', [CompanyTeamApiController::class, 'resendInvite'])->middleware('role:company_admin')->name('invites.resend');
 
             Route::get('/patients', [PatientApiController::class, 'index'])->name('patients.index');
             Route::get('/patients/{patientId}', [PatientApiController::class, 'show'])->name('patients.show');
@@ -45,6 +46,7 @@ Route::prefix('/v1')->name('api.v1.')->group(function (): void {
             Route::post('/patients/{patientId}/tasks', [PatientApiController::class, 'storeTask'])->name('patients.tasks.store');
             Route::patch('/patients/{patientId}/tasks/{taskId}/complete', [PatientApiController::class, 'completeTask'])->name('patients.tasks.complete');
             Route::patch('/patients/{patientId}/status', [PatientApiController::class, 'updateStatus'])->name('patients.status.update');
+            Route::patch('/appointments/{appointmentId}/cancel', [PatientApiController::class, 'cancelAppointment'])->name('appointments.cancel');
         });
 
         Route::prefix('/admin')->name('admin.')->middleware('role:platform_admin')->group(function (): void {
@@ -54,6 +56,7 @@ Route::prefix('/v1')->name('api.v1.')->group(function (): void {
             Route::delete('/companies/{companyId}', [PlatformAdminApiController::class, 'destroyCompany'])->name('companies.destroy');
             Route::post('/invite-owner', [PlatformAdminApiController::class, 'inviteOwner'])->name('invite-owner.store');
             Route::delete('/invites/{inviteId}', [PlatformAdminApiController::class, 'destroyInvite'])->name('invites.destroy');
+            Route::post('/invites/{inviteId}/resend', [PlatformAdminApiController::class, 'resendInvite'])->name('invites.resend');
         });
     });
 });

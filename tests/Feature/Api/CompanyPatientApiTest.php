@@ -107,6 +107,108 @@ class CompanyPatientApiTest extends TestCase
         ]);
     }
 
+    public function test_appointment_overlap_blocks_same_doctor(): void
+    {
+        [$company, $user] = $this->companyUser();
+        $patient = $this->patient($company);
+        $doctor = User::factory()->create([
+            'company_id' => $company->id,
+            'role' => User::ROLE_DENTIST,
+        ]);
+        Appointment::query()->create([
+            'company_id' => $company->id,
+            'patient_id' => $patient->id,
+            'scheduled_by_user_id' => $user->id,
+            'assigned_user_id' => $doctor->id,
+            'starts_at' => '2026-05-12 10:00:00',
+            'ends_at' => '2026-05-12 10:30:00',
+            'type' => Appointment::TYPE_CHECKUP,
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/v1/company/patients/{$patient->id}/appointments", [
+            'starts_at' => '2026-05-12 10:15:00',
+            'ends_at' => '2026-05-12 10:45:00',
+            'type' => Appointment::TYPE_CHECKUP,
+            'assigned_user_id' => $doctor->id,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Izabrani doktor već ima zakazan termin u tom periodu.');
+    }
+
+    public function test_different_doctor_can_have_appointment_at_same_time(): void
+    {
+        [$company, $user] = $this->companyUser();
+        $patient = $this->patient($company);
+        $firstDoctor = User::factory()->create([
+            'company_id' => $company->id,
+            'role' => User::ROLE_DENTIST,
+        ]);
+        $secondDoctor = User::factory()->create([
+            'company_id' => $company->id,
+            'role' => User::ROLE_DENTIST,
+        ]);
+        Appointment::query()->create([
+            'company_id' => $company->id,
+            'patient_id' => $patient->id,
+            'scheduled_by_user_id' => $user->id,
+            'assigned_user_id' => $firstDoctor->id,
+            'starts_at' => '2026-05-12 10:00:00',
+            'ends_at' => '2026-05-12 10:30:00',
+            'type' => Appointment::TYPE_CHECKUP,
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/v1/company/patients/{$patient->id}/appointments", [
+            'starts_at' => '2026-05-12 10:00:00',
+            'ends_at' => '2026-05-12 10:30:00',
+            'type' => Appointment::TYPE_CHECKUP,
+            'assigned_user_id' => $secondDoctor->id,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.assigned_to.id', $secondDoctor->id);
+    }
+
+    public function test_cancelled_appointment_does_not_block_new_appointment(): void
+    {
+        [$company, $user] = $this->companyUser();
+        $patient = $this->patient($company);
+        $doctor = User::factory()->create([
+            'company_id' => $company->id,
+            'role' => User::ROLE_DENTIST,
+        ]);
+        $appointment = Appointment::query()->create([
+            'company_id' => $company->id,
+            'patient_id' => $patient->id,
+            'scheduled_by_user_id' => $user->id,
+            'assigned_user_id' => $doctor->id,
+            'starts_at' => '2026-05-12 10:00:00',
+            'ends_at' => '2026-05-12 10:30:00',
+            'type' => Appointment::TYPE_CHECKUP,
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->patchJson("/api/v1/company/appointments/{$appointment->id}/cancel", [
+            'cancel_reason' => 'Pacijent je odlozio',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Appointment::STATUS_CANCELLED)
+            ->assertJsonPath('data.cancel_reason', 'Pacijent je odlozio');
+
+        $this->postJson("/api/v1/company/patients/{$patient->id}/appointments", [
+            'starts_at' => '2026-05-12 10:00:00',
+            'ends_at' => '2026-05-12 10:30:00',
+            'type' => Appointment::TYPE_CHECKUP,
+            'assigned_user_id' => $doctor->id,
+        ])->assertCreated();
+    }
+
     public function test_company_user_can_create_intervention_for_own_patient(): void
     {
         [$company, $user] = $this->companyUser();
@@ -281,6 +383,15 @@ class CompanyPatientApiTest extends TestCase
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['starts_at', 'type'])
+            ->assertHeader('content-type', 'application/json');
+
+        $this->postJson("/api/v1/company/patients/{$patient->id}/appointments", [
+            'starts_at' => '2026-05-12 10:00:00',
+            'ends_at' => '2026-05-12 09:00:00',
+            'type' => Appointment::TYPE_CHECKUP,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.ends_at.0', 'Kraj termina mora biti posle početka termina.')
             ->assertHeader('content-type', 'application/json');
     }
 

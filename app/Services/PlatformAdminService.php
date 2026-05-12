@@ -65,6 +65,7 @@ class PlatformAdminService
                 ->count(),
             'pending_invites_count' => Invite::query()
                 ->whereNull('accepted_at')
+                ->whereNull('revoked_at')
                 ->where('expires_at', '>', Carbon::now())
                 ->where(function ($query): void {
                     $query->whereHas('company')
@@ -95,6 +96,7 @@ class PlatformAdminService
                 'appointments as scheduled_appointments_count' => fn ($query) => $query->where('status', Appointment::STATUS_SCHEDULED),
                 'invites as pending_invites_count' => fn ($query) => $query
                     ->whereNull('accepted_at')
+                    ->whereNull('revoked_at')
                     ->where('expires_at', '>', Carbon::now()),
             ])
             ->latest()

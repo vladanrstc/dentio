@@ -182,6 +182,29 @@ class PatientApiController extends Controller
         return new PatientResource($patient);
     }
 
+    public function cancelAppointment(Request $request, int $appointmentId): AppointmentResource
+    {
+        $validated = $request->validate([
+            'cancel_reason' => ['nullable', 'string'],
+        ]);
+
+        $appointment = Appointment::query()
+            ->where('company_id', $request->user()->company_id)
+            ->whereKey($appointmentId)
+            ->first();
+
+        abort_if($appointment === null, Response::HTTP_NOT_FOUND);
+
+        $appointment = $this->appointmentService->cancel(
+            $request->user(),
+            $appointment,
+            $validated['cancel_reason'] ?? null,
+        );
+        $appointment->loadMissing(['patient', 'assignedTo', 'scheduledBy']);
+
+        return new AppointmentResource($appointment);
+    }
+
     private function findPatientOrFail(Request $request, int $patientId): Patient
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId);
