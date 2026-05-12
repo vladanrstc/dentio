@@ -7,6 +7,7 @@ use App\Http\Resources\PatientCollection;
 use App\Http\Resources\PatientResource;
 use App\Services\PatientService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class PatientApiController extends Controller
 {
@@ -27,6 +28,7 @@ class PatientApiController extends Controller
     {
         $patient = $this->patientService->findForUser($request->user(), $patientId, true);
         abort_if($patient === null, 404);
+        Gate::authorize('view', $patient);
 
         return new PatientResource($patient);
     }

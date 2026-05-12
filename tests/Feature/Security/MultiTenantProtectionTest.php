@@ -253,6 +253,131 @@ class MultiTenantProtectionTest extends TestCase
         ]);
     }
 
+    public function test_same_company_user_can_create_patient_with_same_company_primary_dentist(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])
+            ->post(route('patients.store'), $this->patientPayload([
+                'primary_dentist_id' => $data['userA']->id,
+            ]));
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('patients', [
+            'company_id' => $data['companyA']->id,
+            'first_name' => 'Safe',
+            'last_name' => 'Patient',
+            'primary_dentist_id' => $data['userA']->id,
+        ]);
+    }
+
+    public function test_same_company_user_can_update_patient_with_same_company_primary_dentist(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])
+            ->put(route('patients.update', $data['patientA']->id), $this->patientPayload([
+                'first_name' => 'Updated',
+                'primary_dentist_id' => $data['userA']->id,
+            ]));
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('patients', [
+            'id' => $data['patientA']->id,
+            'company_id' => $data['companyA']->id,
+            'first_name' => 'Updated',
+            'primary_dentist_id' => $data['userA']->id,
+        ]);
+    }
+
+    public function test_same_company_user_can_change_patient_status(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])
+            ->patch(route('patients.status.update', $data['patientA']->id), [
+                'manual_status' => Patient::STATUS_INACTIVE,
+                'manual_status_reason' => 'Follow up later',
+            ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('patients', [
+            'id' => $data['patientA']->id,
+            'manual_status' => Patient::STATUS_INACTIVE,
+            'manual_status_reason' => 'Follow up later',
+            'manual_status_changed_by_user_id' => $data['userA']->id,
+        ]);
+        $this->assertDatabaseHas('patient_status_logs', [
+            'company_id' => $data['companyA']->id,
+            'patient_id' => $data['patientA']->id,
+            'changed_by_user_id' => $data['userA']->id,
+            'previous_status' => Patient::STATUS_ACTIVE,
+            'new_status' => Patient::STATUS_INACTIVE,
+        ]);
+    }
+
+    public function test_same_company_user_can_create_task_with_same_company_assigned_user(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])
+            ->post(route('patients.tasks.store', $data['patientA']->id), [
+                'description' => 'Same company task',
+                'due_date' => Carbon::tomorrow()->toDateString(),
+                'assigned_to_user_id' => $data['userA']->id,
+            ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('patient_tasks', [
+            'company_id' => $data['companyA']->id,
+            'patient_id' => $data['patientA']->id,
+            'created_by_user_id' => $data['userA']->id,
+            'assigned_to_user_id' => $data['userA']->id,
+            'description' => 'Same company task',
+            'status' => PatientTask::STATUS_OPEN,
+        ]);
+    }
+
+    public function test_same_company_user_can_create_appointment_with_same_company_responsible_user(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])
+            ->post(route('patients.appointments.store', $data['patientA']->id), $this->appointmentPayload([
+                'assigned_user_id' => $data['userA']->id,
+            ]));
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('appointments', [
+            'company_id' => $data['companyA']->id,
+            'patient_id' => $data['patientA']->id,
+            'scheduled_by_user_id' => $data['userA']->id,
+            'assigned_user_id' => $data['userA']->id,
+            'type' => Appointment::TYPE_CHECKUP,
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+    }
+
+    public function test_same_company_user_can_create_intervention_with_same_company_appointment_and_performer(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])
+            ->post(route('patients.interventions.store', $data['patientA']->id), $this->interventionPayload([
+                'appointment_id' => $data['appointmentA']->id,
+                'performed_by_user_id' => $data['userA']->id,
+            ]));
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('interventions', [
+            'company_id' => $data['companyA']->id,
+            'patient_id' => $data['patientA']->id,
+            'appointment_id' => $data['appointmentA']->id,
+            'performed_by_user_id' => $data['userA']->id,
+            'title' => 'Security intervention',
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */
