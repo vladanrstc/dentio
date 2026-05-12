@@ -2,6 +2,7 @@
 
 use App\Services\InviteService;
 use App\Services\ReminderDispatchService;
+use App\Services\Reports\ReportDispatchService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
@@ -26,3 +27,11 @@ Artisan::command('reminders:send-due {--limit=100}', function (int $limit) {
 
     $this->info('Poslato podsetnika: '.$sent);
 })->purpose('Send due reminder emails.');
+
+Artisan::command('reports:send-due', function () {
+    /** @var ReportDispatchService $service */
+    $service = app(ReportDispatchService::class);
+    $sent = $service->sendDue();
+
+    $this->info('Poslato izvestaja: '.$sent);
+})->purpose('Send due scheduled report emails.');

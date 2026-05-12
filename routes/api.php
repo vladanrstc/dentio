@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DashboardApiController;
 use App\Http\Controllers\Api\InviteAcceptanceApiController;
 use App\Http\Controllers\Api\PatientApiController;
 use App\Http\Controllers\Api\PlatformAdminApiController;
+use App\Http\Controllers\Api\ReportsApiController;
 use App\Http\Controllers\Api\StaffApiController;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +30,11 @@ Route::prefix('/v1')->name('api.v1.')->group(function (): void {
 
         Route::prefix('/company')->name('company.')->middleware('role:company_admin,dentist,nurse')->group(function (): void {
             Route::get('/team', [CompanyTeamApiController::class, 'team'])->name('team.index');
+            Route::get('/reports/patients', [ReportsApiController::class, 'patients'])->name('reports.patients');
+            Route::get('/reports/appointments', [ReportsApiController::class, 'appointments'])->name('reports.appointments');
+            Route::get('/reports/interventions-financial', [ReportsApiController::class, 'interventionsFinancial'])->name('reports.interventions-financial');
+            Route::get('/reports/subscriptions', [ReportsApiController::class, 'companySubscriptions'])->name('reports.subscriptions.index');
+            Route::put('/reports/subscriptions/{reportKey}', [ReportsApiController::class, 'updateCompanySubscription'])->name('reports.subscriptions.update');
             Route::delete('/team/{userId}', [CompanyTeamApiController::class, 'destroy'])->middleware('role:company_admin')->name('team.destroy');
             Route::get('/invites', [CompanyTeamApiController::class, 'invites'])->middleware('role:company_admin')->name('invites.index');
             Route::post('/invites', [CompanyTeamApiController::class, 'storeInvite'])->middleware('role:company_admin')->name('invites.store');
@@ -51,6 +57,9 @@ Route::prefix('/v1')->name('api.v1.')->group(function (): void {
 
         Route::prefix('/admin')->name('admin.')->middleware('role:platform_admin')->group(function (): void {
             Route::get('/dashboard', [PlatformAdminApiController::class, 'dashboard'])->name('dashboard');
+            Route::get('/reports/companies', [ReportsApiController::class, 'adminCompanies'])->name('reports.companies');
+            Route::get('/reports/subscriptions', [ReportsApiController::class, 'adminSubscriptions'])->name('reports.subscriptions.index');
+            Route::put('/reports/subscriptions/{reportKey}', [ReportsApiController::class, 'updateAdminSubscription'])->name('reports.subscriptions.update');
             Route::get('/companies', [PlatformAdminApiController::class, 'companies'])->name('companies.index');
             Route::get('/companies/{companyId}', [PlatformAdminApiController::class, 'company'])->name('companies.show');
             Route::delete('/companies/{companyId}', [PlatformAdminApiController::class, 'destroyCompany'])->name('companies.destroy');
