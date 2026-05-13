@@ -9,17 +9,16 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureUserRole
 {
     /**
-     * @param list<string> $roles
+     * @param  list<string>  $roles
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = $request->user();
 
         if ($user === null || ! in_array($user->role, $roles, true)) {
-            abort(403, 'Nemate pravo pristupa ovoj akciji.');
+            abort(403, __('errors.unauthorized'));
         }
 
         return $next($request);
     }
 }
-

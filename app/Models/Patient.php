@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PatientStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,13 +12,13 @@ class Patient extends Model
 {
     use HasFactory;
 
-    public const STATUS_ACTIVE = 'active';
+    public const STATUS_ACTIVE = PatientStatus::ACTIVE->value;
 
-    public const STATUS_INACTIVE = 'inactive';
+    public const STATUS_INACTIVE = PatientStatus::INACTIVE->value;
 
-    public const STATUS_TRANSFERRED = 'transferred';
+    public const STATUS_TRANSFERRED = PatientStatus::TRANSFERRED->value;
 
-    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_COMPLETED = PatientStatus::COMPLETED->value;
 
     /**
      * @var list<string>
@@ -92,4 +93,3 @@ class Patient extends Model
         return trim($this->first_name.' '.$this->last_name);
     }
 }
-

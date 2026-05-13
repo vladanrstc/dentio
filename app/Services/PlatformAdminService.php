@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\TenantResourceNotFoundException;
 use App\Models\Appointment;
 use App\Models\Company;
 use App\Models\Invite;
@@ -43,6 +44,26 @@ class PlatformAdminService
     public function companyOverview(int $companyId): ?Company
     {
         return $this->companyRepository->findWithOverviewById($companyId);
+    }
+
+    public function deleteCompany(Company $company): void
+    {
+        Invite::query()
+            ->where('company_id', $company->id)
+            ->whereNull('accepted_at')
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]);
+
+        $company->delete();
+    }
+
+    public function assertCompanyExists(?Company $company): Company
+    {
+        if ($company === null) {
+            throw new TenantResourceNotFoundException(__('errors.company_not_found'));
+        }
+
+        return $company;
     }
 
     /**

@@ -35,24 +35,24 @@ Route::prefix('/v1')->name('api.v1.')->group(function (): void {
             Route::get('/reports/interventions-financial', [ReportsApiController::class, 'interventionsFinancial'])->name('reports.interventions-financial');
             Route::get('/reports/subscriptions', [ReportsApiController::class, 'companySubscriptions'])->name('reports.subscriptions.index');
             Route::put('/reports/subscriptions/{reportKey}', [ReportsApiController::class, 'updateCompanySubscription'])->name('reports.subscriptions.update');
-            Route::delete('/team/{userId}', [CompanyTeamApiController::class, 'destroy'])->middleware('role:company_admin')->name('team.destroy');
+            Route::delete('/team/{user}', [CompanyTeamApiController::class, 'destroy'])->middleware('role:company_admin')->name('team.destroy');
             Route::get('/invites', [CompanyTeamApiController::class, 'invites'])->middleware('role:company_admin')->name('invites.index');
             Route::post('/invites', [CompanyTeamApiController::class, 'storeInvite'])->middleware('role:company_admin')->name('invites.store');
-            Route::delete('/invites/{inviteId}', [CompanyTeamApiController::class, 'destroyInvite'])->middleware('role:company_admin')->name('invites.destroy');
-            Route::post('/invites/{inviteId}/resend', [CompanyTeamApiController::class, 'resendInvite'])->middleware('role:company_admin')->name('invites.resend');
+            Route::delete('/invites/{invite}', [CompanyTeamApiController::class, 'destroyInvite'])->middleware('role:company_admin')->name('invites.destroy');
+            Route::post('/invites/{invite}/resend', [CompanyTeamApiController::class, 'resendInvite'])->middleware('role:company_admin')->name('invites.resend');
 
             Route::get('/patients', [PatientApiController::class, 'index'])->name('patients.index');
-            Route::get('/patients/{patientId}', [PatientApiController::class, 'show'])->name('patients.show');
+            Route::get('/patients/{patient}', [PatientApiController::class, 'show'])->name('patients.show');
             Route::post('/patients', [PatientApiController::class, 'store'])->name('patients.store');
-            Route::put('/patients/{patientId}', [PatientApiController::class, 'update'])->name('patients.update');
-            Route::delete('/patients/{patientId}', [PatientApiController::class, 'destroy'])->name('patients.destroy');
+            Route::put('/patients/{patient}', [PatientApiController::class, 'update'])->name('patients.update');
+            Route::delete('/patients/{patient}', [PatientApiController::class, 'destroy'])->name('patients.destroy');
 
-            Route::post('/patients/{patientId}/appointments', [PatientApiController::class, 'storeAppointment'])->name('patients.appointments.store');
-            Route::post('/patients/{patientId}/interventions', [PatientApiController::class, 'storeIntervention'])->name('patients.interventions.store');
-            Route::post('/patients/{patientId}/tasks', [PatientApiController::class, 'storeTask'])->name('patients.tasks.store');
-            Route::patch('/patients/{patientId}/tasks/{taskId}/complete', [PatientApiController::class, 'completeTask'])->name('patients.tasks.complete');
-            Route::patch('/patients/{patientId}/status', [PatientApiController::class, 'updateStatus'])->name('patients.status.update');
-            Route::patch('/appointments/{appointmentId}/cancel', [PatientApiController::class, 'cancelAppointment'])->name('appointments.cancel');
+            Route::post('/patients/{patient}/appointments', [PatientApiController::class, 'storeAppointment'])->name('patients.appointments.store');
+            Route::post('/patients/{patient}/interventions', [PatientApiController::class, 'storeIntervention'])->name('patients.interventions.store');
+            Route::post('/patients/{patient}/tasks', [PatientApiController::class, 'storeTask'])->name('patients.tasks.store');
+            Route::patch('/patients/{patient}/tasks/{task}/complete', [PatientApiController::class, 'completeTask'])->name('patients.tasks.complete');
+            Route::patch('/patients/{patient}/status', [PatientApiController::class, 'updateStatus'])->name('patients.status.update');
+            Route::patch('/appointments/{appointment}/cancel', [PatientApiController::class, 'cancelAppointment'])->name('appointments.cancel');
         });
 
         Route::prefix('/admin')->name('admin.')->middleware('role:platform_admin')->group(function (): void {
@@ -61,11 +61,11 @@ Route::prefix('/v1')->name('api.v1.')->group(function (): void {
             Route::get('/reports/subscriptions', [ReportsApiController::class, 'adminSubscriptions'])->name('reports.subscriptions.index');
             Route::put('/reports/subscriptions/{reportKey}', [ReportsApiController::class, 'updateAdminSubscription'])->name('reports.subscriptions.update');
             Route::get('/companies', [PlatformAdminApiController::class, 'companies'])->name('companies.index');
-            Route::get('/companies/{companyId}', [PlatformAdminApiController::class, 'company'])->name('companies.show');
-            Route::delete('/companies/{companyId}', [PlatformAdminApiController::class, 'destroyCompany'])->name('companies.destroy');
+            Route::get('/companies/{company}', [PlatformAdminApiController::class, 'company'])->name('companies.show');
+            Route::delete('/companies/{company}', [PlatformAdminApiController::class, 'destroyCompany'])->name('companies.destroy');
             Route::post('/invite-owner', [PlatformAdminApiController::class, 'inviteOwner'])->name('invite-owner.store');
-            Route::delete('/invites/{inviteId}', [PlatformAdminApiController::class, 'destroyInvite'])->name('invites.destroy');
-            Route::post('/invites/{inviteId}/resend', [PlatformAdminApiController::class, 'resendInvite'])->name('invites.resend');
+            Route::delete('/invites/{invite}', [PlatformAdminApiController::class, 'destroyInvite'])->name('invites.destroy');
+            Route::post('/invites/{invite}/resend', [PlatformAdminApiController::class, 'resendInvite'])->name('invites.resend');
         });
     });
 });

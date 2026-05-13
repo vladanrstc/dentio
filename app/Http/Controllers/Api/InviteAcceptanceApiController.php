@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Invite\AcceptInviteRequest;
 use App\Http\Resources\InviteAcceptanceResource;
 use App\Models\User;
+use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\InviteService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
@@ -14,12 +15,13 @@ class InviteAcceptanceApiController extends Controller
 {
     public function __construct(
         private readonly InviteService $inviteService,
+        private readonly UserRepositoryInterface $userRepository,
     ) {}
 
     public function show(string $token): InviteAcceptanceResource
     {
         $invite = $this->inviteService->findInviteByToken($token);
-        abort_if($invite === null, Response::HTTP_NOT_FOUND, 'Pozivnica ne postoji.');
+        abort_if($invite === null, Response::HTTP_NOT_FOUND, __('errors.invite_not_found'));
 
         return new InviteAcceptanceResource($invite);
     }
@@ -27,25 +29,25 @@ class InviteAcceptanceApiController extends Controller
     public function store(AcceptInviteRequest $request, string $token): JsonResponse
     {
         $invite = $this->inviteService->findInviteByToken($token);
-        abort_if($invite === null, Response::HTTP_NOT_FOUND, 'Pozivnica ne postoji.');
+        abort_if($invite === null, Response::HTTP_NOT_FOUND, __('errors.invite_not_found'));
 
         if ($invite->accepted_at !== null) {
-            abort(Response::HTTP_GONE, 'Pozivnica je vec prihvacena.');
+            abort(Response::HTTP_GONE, __('errors.invite_already_accepted'));
         }
 
         if ($invite->revoked_at !== null) {
-            abort(Response::HTTP_GONE, 'Pozivnica je opozvana.');
+            abort(Response::HTTP_GONE, __('errors.invite_revoked'));
         }
 
         if ($invite->expires_at === null || $invite->expires_at->isPast()) {
             return response()->json([
-                'message' => 'Pozivnica je istekla.',
+                'message' => __('errors.invite_expired'),
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        if (User::query()->where('email', $invite->email)->exists()) {
+        if ($this->userRepository->emailExists($invite->email)) {
             return response()->json([
-                'message' => 'Korisnik sa ovom email adresom već postoji.',
+                'message' => __('errors.email_already_exists'),
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 

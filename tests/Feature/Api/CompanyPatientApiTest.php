@@ -209,6 +209,30 @@ class CompanyPatientApiTest extends TestCase
         ])->assertCreated();
     }
 
+    public function test_company_user_cannot_cancel_appointment_from_other_company(): void
+    {
+        [, $user] = $this->companyUser();
+        [$otherCompany, $otherUser] = $this->companyUser('other');
+        $otherPatient = $this->patient($otherCompany);
+        $otherAppointment = Appointment::query()->create([
+            'company_id' => $otherCompany->id,
+            'patient_id' => $otherPatient->id,
+            'scheduled_by_user_id' => $otherUser->id,
+            'starts_at' => '2026-05-12 10:00:00',
+            'type' => Appointment::TYPE_CHECKUP,
+            'status' => Appointment::STATUS_SCHEDULED,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->patchJson("/api/v1/company/appointments/{$otherAppointment->id}/cancel")
+            ->assertNotFound()
+            ->assertHeader('content-type', 'application/json')
+            ->assertJsonPath('message', __('errors.appointment_not_found'));
+
+        $this->assertSame(Appointment::STATUS_SCHEDULED, $otherAppointment->fresh()->status);
+    }
+
     public function test_company_user_can_create_intervention_for_own_patient(): void
     {
         [$company, $user] = $this->companyUser();

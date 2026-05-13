@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Exceptions\ReportExportException;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -33,7 +34,7 @@ class ReportExportService
                 'mime' => 'application/pdf',
                 'extension' => 'pdf',
             ],
-            default => throw new \InvalidArgumentException('Format mora biti csv, xlsx ili pdf.'),
+            default => throw new ReportExportException(__('errors.report_format_invalid')),
         };
     }
 
@@ -43,13 +44,7 @@ class ReportExportService
      */
     public function export(string $filename, array $headers, array $rows, string $format): SymfonyResponse
     {
-        try {
-            $export = $this->content($headers, $rows, $format);
-        } catch (\InvalidArgumentException) {
-            return response()->json([
-                'message' => 'Format mora biti csv, xlsx ili pdf.',
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
+        $export = $this->content($headers, $rows, $format);
 
         return response($export['content'], Response::HTTP_OK, [
             'Content-Type' => $export['mime'],
@@ -102,11 +97,13 @@ class ReportExportService
      * @param  list<string>  $headers
      * @param  list<list<scalar|null>>  $rows
      */
-    private function pdfContent(array $headers, array $rows): string
+     private function pdfContent(array $headers, array $rows): string
     {
         return Pdf::loadView('reports.table', [
             'headers' => $headers,
             'rows' => $rows,
-        ])->output();
+        ])
+            ->setPaper('a4', 'landscape')
+            ->output();
     }
 }

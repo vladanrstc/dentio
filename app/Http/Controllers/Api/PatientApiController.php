@@ -15,26 +15,22 @@ use App\Http\Resources\PatientCollection;
 use App\Http\Resources\PatientResource;
 use App\Http\Resources\PatientTaskResource;
 use App\Models\Appointment;
-use App\Models\Intervention;
 use App\Models\Patient;
 use App\Models\PatientTask;
-use App\Models\Reminder;
 use App\Repositories\Contracts\PatientTaskRepositoryInterface;
-use App\Services\AppointmentService;
-use App\Services\InterventionService;
-use App\Services\PatientService;
-use Illuminate\Database\Eloquent\Builder;
+use App\Services\Contracts\AppointmentServiceInterface;
+use App\Services\Contracts\InterventionServiceInterface;
+use App\Services\Contracts\PatientServiceInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 
 class PatientApiController extends Controller
 {
     public function __construct(
-        private readonly PatientService $patientService,
-        private readonly AppointmentService $appointmentService,
-        private readonly InterventionService $interventionService,
+        private readonly PatientServiceInterface $patientService,
+        private readonly AppointmentServiceInterface $appointmentService,
+        private readonly InterventionServiceInterface $interventionService,
         private readonly PatientTaskRepositoryInterface $patientTaskRepository,
     ) {}
 
@@ -55,70 +51,35 @@ class PatientApiController extends Controller
             ->setStatusCode(201);
     }
 
-    public function show(Request $request, int $patientId): PatientResource
+    public function show(Request $request, Patient $patient): PatientResource
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId, true);
-        abort_if($patient === null, 404);
+        $patient = $this->patientService->findForUser($request->user(), $patient->id, true);
+        abort_if($patient === null, Response::HTTP_NOT_FOUND);
 
         return new PatientResource($patient);
     }
 
-    public function update(UpdatePatientRequest $request, int $patientId): PatientResource
+    public function update(UpdatePatientRequest $request, Patient $patient): PatientResource
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId);
-
-        abort_if($patient === null, Response::HTTP_NOT_FOUND);
-
         $this->patientService->update($request->user(), $patient, $request->validated());
 
-        $patient = $this->patientService->findForUser($request->user(), $patientId, true);
+        $patient = $this->patientService->findForUser($request->user(), $patient->id, true);
 
         return new PatientResource($patient);
     }
 
-    public function destroy(Request $request, int $patientId): JsonResponse
+    public function destroy(Request $request, Patient $patient): JsonResponse
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId);
-
-        abort_if($patient === null, Response::HTTP_NOT_FOUND);
-
-        DB::transaction(function () use ($patient): void {
-            $appointmentIds = Appointment::query()
-                ->where('patient_id', $patient->id)
-                ->pluck('id');
-            $interventionIds = Intervention::query()
-                ->where('patient_id', $patient->id)
-                ->pluck('id');
-
-            Reminder::query()
-                ->where(function (Builder $query) use ($patient, $appointmentIds, $interventionIds): void {
-                    $query->where('patient_id', $patient->id)
-                        ->when($appointmentIds->isNotEmpty(), fn (Builder $inner) => $inner->orWhereIn('appointment_id', $appointmentIds))
-                        ->when($interventionIds->isNotEmpty(), fn (Builder $inner) => $inner->orWhereIn('intervention_id', $interventionIds));
-                })
-                ->delete();
-
-            PatientTask::query()
-                ->where('patient_id', $patient->id)
-                ->delete();
-            Intervention::query()
-                ->where('patient_id', $patient->id)
-                ->delete();
-            Appointment::query()
-                ->where('patient_id', $patient->id)
-                ->delete();
-
-            $patient->delete();
-        });
+        $this->patientService->delete($request->user(), $patient);
 
         return response()->json([
-            'message' => 'Pacijent je obrisan.',
+            'message' => __('errors.patient_deleted'),
         ]);
     }
 
-    public function storeAppointment(StoreAppointmentRequest $request, int $patientId): JsonResponse
+    public function storeAppointment(StoreAppointmentRequest $request, Patient $patient): JsonResponse
     {
-        $patient = $this->findPatientOrFail($request, $patientId);
+        $patient = $this->patientService->assertAccessible($request->user(), $patient);
 
         $appointment = $this->appointmentService->schedule($request->user(), $patient, $request->validated());
         $appointment->loadMissing(['patient', 'assignedTo', 'scheduledBy']);
@@ -128,9 +89,9 @@ class PatientApiController extends Controller
             ->setStatusCode(Response::HTTP_CREATED);
     }
 
-    public function storeIntervention(StoreInterventionRequest $request, int $patientId): JsonResponse
+    public function storeIntervention(StoreInterventionRequest $request, Patient $patient): JsonResponse
     {
-        $patient = $this->findPatientOrFail($request, $patientId);
+        $patient = $this->patientService->assertAccessible($request->user(), $patient);
 
         $intervention = $this->interventionService->record($request->user(), $patient, $request->validated());
         $intervention->loadMissing(['performedBy']);
@@ -140,9 +101,9 @@ class PatientApiController extends Controller
             ->setStatusCode(Response::HTTP_CREATED);
     }
 
-    public function storeTask(StorePatientTaskRequest $request, int $patientId): JsonResponse
+    public function storeTask(StorePatientTaskRequest $request, Patient $patient): JsonResponse
     {
-        $patient = $this->findPatientOrFail($request, $patientId);
+        $patient = $this->patientService->assertAccessible($request->user(), $patient);
 
         $task = $this->patientService->addTask($request->user(), $patient, $request->validated());
         $task->loadMissing(['assignedTo', 'createdBy', 'closedBy']);
@@ -152,11 +113,11 @@ class PatientApiController extends Controller
             ->setStatusCode(Response::HTTP_CREATED);
     }
 
-    public function completeTask(Request $request, int $patientId, int $taskId): PatientTaskResource
+    public function completeTask(Request $request, Patient $patient, PatientTask $task): PatientTaskResource
     {
-        $patient = $this->findPatientOrFail($request, $patientId);
+        $patient = $this->patientService->assertAccessible($request->user(), $patient);
 
-        $task = $this->patientTaskRepository->findForCompanyPatient((int) $request->user()->company_id, $patient->id, $taskId);
+        $task = $this->patientTaskRepository->findForCompanyPatient((int) $request->user()->company_id, $patient->id, $task->id);
         abort_if($task === null, Response::HTTP_NOT_FOUND);
 
         $task = $this->patientService->completeTask($request->user(), $task);
@@ -165,9 +126,9 @@ class PatientApiController extends Controller
         return new PatientTaskResource($task);
     }
 
-    public function updateStatus(UpdatePatientStatusRequest $request, int $patientId): PatientResource
+    public function updateStatus(UpdatePatientStatusRequest $request, Patient $patient): PatientResource
     {
-        $patient = $this->findPatientOrFail($request, $patientId);
+        $patient = $this->patientService->assertAccessible($request->user(), $patient);
 
         $validated = $request->validated();
         $this->patientService->changeManualStatus(
@@ -177,23 +138,16 @@ class PatientApiController extends Controller
             $validated['manual_status_reason'] ?? null
         );
 
-        $patient = $this->patientService->findForUser($request->user(), $patientId, true);
+        $patient = $this->patientService->findForUser($request->user(), $patient->id, true);
 
         return new PatientResource($patient);
     }
 
-    public function cancelAppointment(Request $request, int $appointmentId): AppointmentResource
+    public function cancelAppointment(Request $request, Appointment $appointment): AppointmentResource
     {
         $validated = $request->validate([
             'cancel_reason' => ['nullable', 'string'],
         ]);
-
-        $appointment = Appointment::query()
-            ->where('company_id', $request->user()->company_id)
-            ->whereKey($appointmentId)
-            ->first();
-
-        abort_if($appointment === null, Response::HTTP_NOT_FOUND);
 
         $appointment = $this->appointmentService->cancel(
             $request->user(),
@@ -203,13 +157,5 @@ class PatientApiController extends Controller
         $appointment->loadMissing(['patient', 'assignedTo', 'scheduledBy']);
 
         return new AppointmentResource($appointment);
-    }
-
-    private function findPatientOrFail(Request $request, int $patientId): Patient
-    {
-        $patient = $this->patientService->findForUser($request->user(), $patientId);
-        abort_if($patient === null, Response::HTTP_NOT_FOUND);
-
-        return $patient;
     }
 }

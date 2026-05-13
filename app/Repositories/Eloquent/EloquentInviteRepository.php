@@ -41,6 +41,27 @@ class EloquentInviteRepository implements InviteRepositoryInterface
             ->paginate($perPage);
     }
 
+    public function findTeamInviteForCompany(int $companyId, int $inviteId): ?Invite
+    {
+        return Invite::query()
+            ->where('company_id', $companyId)
+            ->whereIn('role', [User::ROLE_DENTIST, User::ROLE_NURSE])
+            ->whereKey($inviteId)
+            ->first();
+    }
+
+    public function hasActiveDuplicate(?int $companyId, string $email, string $role): bool
+    {
+        return Invite::query()
+            ->when($companyId === null, fn ($query) => $query->whereNull('company_id'), fn ($query) => $query->where('company_id', $companyId))
+            ->where('email', $email)
+            ->where('role', $role)
+            ->whereNull('accepted_at')
+            ->whereNull('revoked_at')
+            ->where('expires_at', '>', Carbon::now())
+            ->exists();
+    }
+
     public function markAccepted(Invite $invite, int $userId): Invite
     {
         $invite->accepted_at = Carbon::now();

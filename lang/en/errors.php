@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'appointment_conflict' => 'The selected doctor already has an appointment in that period.',
+    'appointment_not_found' => 'Appointment was not found.',
+    'admin_delete_forbidden' => 'Admin accounts cannot be deleted.',
+    'company_not_found' => 'Company was not found.',
+    'email_already_exists' => 'A user with this email address already exists.',
+    'invalid_credentials' => 'The email or password is incorrect.',
+    'invite_accepted_cannot_revoke' => 'Accepted invites cannot be revoked.',
+    'invite_already_accepted' => 'The invite has already been accepted.',
+    'invite_duplicate_active' => 'An active invite already exists for this email address and role.',
+    'invite_expired' => 'The invite has expired.',
+    'invite_not_found' => 'Invite was not found.',
+    'invite_resend_not_allowed' => 'Only pending or expired invites can be resent.',
+    'invite_revoked' => 'The invite has been revoked.',
+    'missing_company' => 'The user does not have an assigned company.',
+    'patient_not_found' => 'Patient was not found.',
+    'patient_deleted' => 'Patient has been deleted.',
+    'report_not_allowed' => 'The selected report is not allowed.',
+    'report_format_invalid' => 'Format must be csv, xlsx or pdf.',
+    'task_not_found' => 'Task was not found.',
+    'unauthorized' => 'You are not authorized to perform this action.',
+    'user_not_found' => 'User was not found.',
+];

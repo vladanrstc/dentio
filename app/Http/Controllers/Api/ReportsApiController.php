@@ -3,21 +3,21 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Report\UpdateReportSubscriptionRequest;
 use App\Http\Resources\ReportSubscriptionResource;
-use App\Models\ReportSubscription;
+use App\Services\Contracts\ReportServiceInterface;
 use App\Services\Reports\ReportExportService;
 use App\Services\Reports\ReportsService;
 use App\Services\Reports\ReportSubscriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
 
 class ReportsApiController extends Controller
 {
     public function __construct(
-        private readonly ReportsService $reportsService,
+        private readonly ReportServiceInterface $reportsService,
         private readonly ReportExportService $exportService,
         private readonly ReportSubscriptionService $subscriptionService,
     ) {}
@@ -57,13 +57,13 @@ class ReportsApiController extends Controller
         );
     }
 
-    public function updateCompanySubscription(Request $request, string $reportKey): JsonResponse
+    public function updateCompanySubscription(UpdateReportSubscriptionRequest $request, string $reportKey): JsonResponse
     {
         $subscription = $this->subscriptionService->upsert(
             $request->user(),
             $reportKey,
             ReportsService::COMPANY_REPORTS,
-            $this->validatedSubscription($request),
+            $request->validated(),
         );
 
         return (new ReportSubscriptionResource($subscription))
@@ -78,13 +78,13 @@ class ReportsApiController extends Controller
         );
     }
 
-    public function updateAdminSubscription(Request $request, string $reportKey): JsonResponse
+    public function updateAdminSubscription(UpdateReportSubscriptionRequest $request, string $reportKey): JsonResponse
     {
         $subscription = $this->subscriptionService->upsert(
             $request->user(),
             $reportKey,
             ReportsService::ADMIN_REPORTS,
-            $this->validatedSubscription($request),
+            $request->validated(),
         );
 
         return (new ReportSubscriptionResource($subscription))
@@ -103,22 +103,5 @@ class ReportsApiController extends Controller
             $report['rows'],
             $request->string('format', 'csv')->toString(),
         );
-    }
-
-    /**
-     * @return array{frequency: string, format: string, filters?: array<string, mixed>}
-     */
-    private function validatedSubscription(Request $request): array
-    {
-        return $request->validate([
-            'frequency' => ['required', Rule::in([
-                ReportSubscription::FREQUENCY_OFF,
-                ReportSubscription::FREQUENCY_DAILY,
-                ReportSubscription::FREQUENCY_WEEKLY,
-                ReportSubscription::FREQUENCY_MONTHLY,
-            ])],
-            'format' => ['required', Rule::in(['csv', 'xlsx', 'pdf'])],
-            'filters' => ['nullable', 'array'],
-        ]);
     }
 }

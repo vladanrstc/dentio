@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Exceptions\AppointmentConflictException;
+use App\Exceptions\MissingCompanyContextException;
+use App\Exceptions\TenantResourceNotFoundException;
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\Reminder;
@@ -9,11 +12,10 @@ use App\Models\User;
 use App\Repositories\Contracts\AppointmentRepositoryInterface;
 use App\Repositories\Contracts\ReminderRepositoryInterface;
 use App\Services\Calendar\CalendarSyncServiceInterface;
+use App\Services\Contracts\AppointmentServiceInterface;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\ValidationException;
-use RuntimeException;
 
-class AppointmentService
+class AppointmentService implements AppointmentServiceInterface
 {
     public function __construct(
         private readonly AppointmentRepositoryInterface $appointmentRepository,
@@ -24,7 +26,7 @@ class AppointmentService
     public function schedule(User $actor, Patient $patient, array $data): Appointment
     {
         if ($patient->company_id !== $this->companyIdOrFail($actor)) {
-            throw new RuntimeException('Pacijent ne pripada kompaniji korisnika.');
+            throw new TenantResourceNotFoundException(__('errors.patient_not_found'));
         }
 
         $this->ensureDoctorIsAvailable(
@@ -64,7 +66,7 @@ class AppointmentService
     public function cancel(User $actor, Appointment $appointment, ?string $reason = null): Appointment
     {
         if ($appointment->company_id !== $this->companyIdOrFail($actor)) {
-            throw new RuntimeException('Termin ne pripada kompaniji korisnika.');
+            throw new TenantResourceNotFoundException(__('errors.appointment_not_found'));
         }
 
         $appointment->status = Appointment::STATUS_CANCELLED;
@@ -80,27 +82,10 @@ class AppointmentService
             return;
         }
 
-        $startsAt = Carbon::parse($startsAt);
-        $endsAt = Carbon::parse($endsAt);
-
-        $overlaps = Appointment::query()
-            ->where('company_id', $companyId)
-            ->where('assigned_user_id', $assignedUserId)
-            ->where('status', Appointment::STATUS_SCHEDULED)
-            ->where('starts_at', '<', $endsAt)
-            ->where(function ($query) use ($startsAt): void {
-                $query->where('ends_at', '>', $startsAt)
-                    ->orWhere(function ($inner) use ($startsAt): void {
-                        $inner->whereNull('ends_at')
-                            ->where('starts_at', '>', $startsAt);
-                    });
-            })
-            ->exists();
+        $overlaps = $this->appointmentRepository->hasActiveOverlap($companyId, (int) $assignedUserId, $startsAt, $endsAt);
 
         if ($overlaps) {
-            throw ValidationException::withMessages([
-                'assigned_user_id' => ['Izabrani doktor već ima zakazan termin u tom periodu.'],
-            ]);
+            throw new AppointmentConflictException(__('errors.appointment_conflict'));
         }
     }
 
@@ -152,7 +137,7 @@ class AppointmentService
     private function companyIdOrFail(User $user): int
     {
         if (! $user->company_id) {
-            throw new RuntimeException('Korisnik nema dodeljenu kompaniju.');
+            throw new MissingCompanyContextException(__('errors.missing_company'));
         }
 
         return (int) $user->company_id;

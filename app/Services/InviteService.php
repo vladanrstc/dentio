@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use App\Exceptions\InviteActionNotAllowedException;
+use App\Exceptions\InviteResendNotAllowedException;
+use App\Exceptions\MissingCompanyContextException;
+use App\Exceptions\TenantResourceNotFoundException;
 use App\Mail\InviteMail;
 use App\Models\Company;
 use App\Models\Invite;
@@ -14,7 +18,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
 
 class InviteService
 {
@@ -47,7 +50,7 @@ class InviteService
     public function sendStaffInvite(User $inviter, string $email, string $role, ?int $expiresInDays = null): Invite
     {
         if (! $inviter->company_id) {
-            throw new RuntimeException('Korisnik nema kompaniju.');
+            throw new MissingCompanyContextException(__('errors.missing_company'));
         }
 
         $email = mb_strtolower(trim($email));
@@ -86,7 +89,7 @@ class InviteService
 
             if ($companyId === null) {
                 if ($invite->role !== User::ROLE_COMPANY_ADMIN) {
-                    throw new RuntimeException('Pozivnica bez kompanije moze biti samo za company admin ulogu.');
+                    throw new InviteActionNotAllowedException(__('errors.unauthorized'));
                 }
 
                 $company = $this->companyRepository->create([
@@ -126,9 +129,7 @@ class InviteService
     public function revokeInvite(Invite $invite): Invite
     {
         if ($invite->accepted_at !== null) {
-            throw ValidationException::withMessages([
-                'invite' => ['Prihvacene pozivnice ne mogu da se opozovu.'],
-            ]);
+            throw new InviteActionNotAllowedException(__('errors.invite_accepted_cannot_revoke'));
         }
 
         if ($invite->revoked_at === null) {
@@ -139,12 +140,21 @@ class InviteService
         return $invite;
     }
 
+    public function revokeTeamInviteForCompany(int $companyId, int $inviteId): Invite
+    {
+        $invite = $this->inviteRepository->findTeamInviteForCompany($companyId, $inviteId);
+
+        if ($invite === null) {
+            throw new TenantResourceNotFoundException(__('errors.invite_not_found'));
+        }
+
+        return $this->revokeInvite($invite);
+    }
+
     public function resendInvite(Invite $invite): Invite
     {
         if ($invite->accepted_at !== null || $invite->revoked_at !== null) {
-            throw ValidationException::withMessages([
-                'invite' => ['Samo pending ili istekla pozivnica moze ponovo da se posalje.'],
-            ]);
+            throw new InviteResendNotAllowedException(__('errors.invite_resend_not_allowed'));
         }
 
         $invite->token = Str::random(64);
@@ -156,20 +166,22 @@ class InviteService
         return $invite;
     }
 
+    public function resendTeamInviteForCompany(int $companyId, int $inviteId): Invite
+    {
+        $invite = $this->inviteRepository->findTeamInviteForCompany($companyId, $inviteId);
+
+        if ($invite === null) {
+            throw new TenantResourceNotFoundException(__('errors.invite_not_found'));
+        }
+
+        return $this->resendInvite($invite);
+    }
+
     private function ensureNoActiveDuplicateInvite(?int $companyId, string $email, string $role): void
     {
-        $exists = Invite::query()
-            ->when($companyId === null, fn ($query) => $query->whereNull('company_id'), fn ($query) => $query->where('company_id', $companyId))
-            ->where('email', $email)
-            ->where('role', $role)
-            ->whereNull('accepted_at')
-            ->whereNull('revoked_at')
-            ->where('expires_at', '>', Carbon::now())
-            ->exists();
-
-        if ($exists) {
+        if ($this->inviteRepository->hasActiveDuplicate($companyId, $email, $role)) {
             throw ValidationException::withMessages([
-                'email' => ['Vec postoji aktivna pozivnica za ovu email adresu i rolu.'],
+                'email' => [__('errors.invite_duplicate_active')],
             ]);
         }
     }

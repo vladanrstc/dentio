@@ -3,7 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Repositories\Contracts\UserRepositoryInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -11,20 +12,19 @@ use Illuminate\Validation\ValidationException;
 
 class AuthApiController extends Controller
 {
-    public function login(Request $request): JsonResponse
-    {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+    public function __construct(
+        private readonly UserRepositoryInterface $userRepository,
+    ) {}
 
-        $user = User::query()
-            ->where('email', $credentials['email'])
-            ->first();
+    public function login(LoginRequest $request): JsonResponse
+    {
+        $credentials = $request->validated();
+
+        $user = $this->userRepository->findByEmail($credentials['email']);
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'email' => ['Pogresan email ili lozinka.'],
+                'email' => [__('errors.invalid_credentials')],
             ]);
         }
 
@@ -62,7 +62,7 @@ class AuthApiController extends Controller
         $request->user()?->currentAccessToken()?->delete();
 
         return response()->json([
-            'message' => 'Uspesno ste se odjavili.',
+            'message' => __('auth.logged_out'),
         ]);
     }
 }

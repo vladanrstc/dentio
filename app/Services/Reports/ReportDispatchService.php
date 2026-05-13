@@ -4,13 +4,14 @@ namespace App\Services\Reports;
 
 use App\Mail\ReportMail;
 use App\Models\ReportSubscription;
+use App\Services\Contracts\ReportServiceInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 
 class ReportDispatchService
 {
     public function __construct(
-        private readonly ReportsService $reportsService,
+        private readonly ReportServiceInterface $reportsService,
         private readonly ReportExportService $exportService,
         private readonly ReportSubscriptionService $subscriptionService,
     ) {}

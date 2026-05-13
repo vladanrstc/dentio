@@ -9,11 +9,12 @@ use App\Models\Patient;
 use App\Models\PatientTask;
 use App\Models\ReportSubscription;
 use App\Models\User;
+use App\Services\Contracts\ReportServiceInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
-class ReportsService
+class ReportsService implements ReportServiceInterface
 {
     private const STATUS_LABELS = [
         Patient::STATUS_ACTIVE => 'Aktivan',

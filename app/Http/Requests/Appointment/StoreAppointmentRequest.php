@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Appointment;
 
-use App\Models\Appointment;
+use App\Enums\AppointmentType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,11 +23,7 @@ class StoreAppointmentRequest extends FormRequest
         return [
             'starts_at' => ['required', 'date'],
             'ends_at' => ['nullable', 'date', 'after:starts_at'],
-            'type' => ['required', Rule::in([
-                Appointment::TYPE_CHECKUP,
-                Appointment::TYPE_INTERVENTION,
-                Appointment::TYPE_CONTROL,
-            ])],
+            'type' => ['required', Rule::enum(AppointmentType::class)],
             'assigned_user_id' => [
                 'nullable',
                 'integer',

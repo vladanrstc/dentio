@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'appointment_conflict' => 'Izabrani doktor već ima zakazan termin u tom periodu.',
+    'appointment_not_found' => 'Termin nije pronađen.',
+    'admin_delete_forbidden' => 'Nije dozvoljeno brisanje admin naloga.',
+    'company_not_found' => 'Kompanija nije pronađena.',
+    'email_already_exists' => 'Korisnik sa ovom email adresom već postoji.',
+    'invalid_credentials' => 'Pogrešan email ili lozinka.',
+    'invite_accepted_cannot_revoke' => 'Prihvacene pozivnice ne mogu da se opozovu.',
+    'invite_already_accepted' => 'Pozivnica je vec prihvacena.',
+    'invite_duplicate_active' => 'Vec postoji aktivna pozivnica za ovu email adresu i rolu.',
+    'invite_expired' => 'Pozivnica je istekla.',
+    'invite_not_found' => 'Pozivnica ne postoji.',
+    'invite_resend_not_allowed' => 'Samo pending ili istekla pozivnica moze ponovo da se posalje.',
+    'invite_revoked' => 'Pozivnica je opozvana.',
+    'missing_company' => 'Korisnik nema dodeljenu kompaniju.',
+    'patient_not_found' => 'Pacijent nije pronađen.',
+    'patient_deleted' => 'Pacijent je obrisan.',
+    'report_not_allowed' => 'Izabrani report nije dozvoljen.',
+    'report_format_invalid' => 'Format mora biti csv, xlsx ili pdf.',
+    'task_not_found' => 'Task nije pronađen.',
+    'unauthorized' => 'Nemate pravo pristupa ovoj akciji.',
+    'user_not_found' => 'Korisnik nije pronađen.',
+];

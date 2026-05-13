@@ -10,6 +10,7 @@ use App\Models\Invite;
 use App\Models\User;
 use App\Repositories\Contracts\InviteRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Services\Contracts\CompanyTeamServiceInterface;
 use App\Services\InviteService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ class CompanyTeamApiController extends Controller
         private readonly InviteService $inviteService,
         private readonly InviteRepositoryInterface $inviteRepository,
         private readonly UserRepositoryInterface $userRepository,
+        private readonly CompanyTeamServiceInterface $companyTeamService,
     ) {}
 
     public function team(Request $request): JsonResponse
@@ -55,21 +57,9 @@ class CompanyTeamApiController extends Controller
             ->setStatusCode(Response::HTTP_CREATED);
     }
 
-    public function destroyInvite(Request $request, int $inviteId): JsonResponse
+    public function destroyInvite(Request $request, Invite $invite): JsonResponse
     {
-        $invite = Invite::query()
-            ->where('company_id', $request->user()->company_id)
-            ->whereIn('role', [User::ROLE_DENTIST, User::ROLE_NURSE])
-            ->whereKey($inviteId)
-            ->first();
-
-        abort_if($invite === null, Response::HTTP_NOT_FOUND);
-
-        if ($invite->accepted_at !== null) {
-            abort(Response::HTTP_FORBIDDEN, 'Prihvacene pozivnice ne mogu da se opozovu.');
-        }
-
-        $this->inviteService->revokeInvite($invite);
+        $this->inviteService->revokeTeamInviteForCompany((int) $request->user()->company_id, $invite->id);
 
         return response()->json([
             'data' => [
@@ -78,40 +68,21 @@ class CompanyTeamApiController extends Controller
         ]);
     }
 
-    public function resendInvite(Request $request, int $inviteId): JsonResponse
+    public function resendInvite(Request $request, Invite $invite): JsonResponse
     {
-        $invite = Invite::query()
-            ->where('company_id', $request->user()->company_id)
-            ->whereIn('role', [User::ROLE_DENTIST, User::ROLE_NURSE])
-            ->whereKey($inviteId)
-            ->first();
-
-        abort_if($invite === null, Response::HTTP_NOT_FOUND);
-
-        $invite = $this->inviteService->resendInvite($invite);
+        $invite = $this->inviteService->resendTeamInviteForCompany((int) $request->user()->company_id, $invite->id);
 
         return (new CompanyInviteResource($invite))->response();
     }
 
-    public function destroy(Request $request, int $userId): JsonResponse
+    public function destroy(Request $request, User $user): JsonResponse
     {
-        $teamMember = User::query()
-            ->where('company_id', $request->user()->company_id)
-            ->whereKey($userId)
-            ->first();
-
-        abort_if($teamMember === null, Response::HTTP_NOT_FOUND);
-
-        if (! in_array($teamMember->role, [User::ROLE_DENTIST, User::ROLE_NURSE], true)) {
-            abort(Response::HTTP_FORBIDDEN, 'Nije dozvoljeno brisanje admin naloga.');
-        }
-
-        $teamMember->delete();
+        $deletedId = $this->companyTeamService->deleteTeamMember($request->user(), $user);
 
         return response()->json([
             'data' => [
                 'deleted' => true,
-                'id' => $userId,
+                'id' => $deletedId,
             ],
         ]);
     }

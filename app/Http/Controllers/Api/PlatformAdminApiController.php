@@ -47,9 +47,9 @@ class PlatformAdminApiController extends Controller
         return AdminCompanyResource::collection($companies)->response();
     }
 
-    public function company(int $companyId): AdminCompanyDetailResource
+    public function company(Company $company): AdminCompanyDetailResource
     {
-        $company = $this->platformAdminService->companyOverview($companyId);
+        $company = $this->platformAdminService->companyOverview($company->id);
         abort_if($company === null, Response::HTTP_NOT_FOUND);
 
         return new AdminCompanyDetailResource($company);
@@ -64,18 +64,9 @@ class PlatformAdminApiController extends Controller
             ->setStatusCode(Response::HTTP_CREATED);
     }
 
-    public function destroyCompany(int $companyId): JsonResponse
+    public function destroyCompany(Company $company): JsonResponse
     {
-        $company = Company::query()->find($companyId);
-        abort_if($company === null, Response::HTTP_NOT_FOUND);
-
-        Invite::query()
-            ->where('company_id', $company->id)
-            ->whereNull('accepted_at')
-            ->whereNull('revoked_at')
-            ->update(['revoked_at' => now()]);
-
-        $company->delete();
+        $this->platformAdminService->deleteCompany($company);
 
         return response()->json([
             'data' => [
@@ -84,15 +75,8 @@ class PlatformAdminApiController extends Controller
         ]);
     }
 
-    public function destroyInvite(int $inviteId): JsonResponse
+    public function destroyInvite(Invite $invite): JsonResponse
     {
-        $invite = Invite::query()->find($inviteId);
-        abort_if($invite === null, Response::HTTP_NOT_FOUND);
-
-        if ($invite->accepted_at !== null) {
-            abort(Response::HTTP_FORBIDDEN, 'Prihvacene pozivnice ne mogu da se opozovu.');
-        }
-
         $this->inviteService->revokeInvite($invite);
 
         return response()->json([
@@ -102,11 +86,8 @@ class PlatformAdminApiController extends Controller
         ]);
     }
 
-    public function resendInvite(int $inviteId): JsonResponse
+    public function resendInvite(Invite $invite): JsonResponse
     {
-        $invite = Invite::query()->find($inviteId);
-        abort_if($invite === null, Response::HTTP_NOT_FOUND);
-
         $invite = $this->inviteService->resendInvite($invite);
 
         return (new AdminInviteResource($invite))->response();

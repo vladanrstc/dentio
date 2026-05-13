@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,13 +17,13 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    public const ROLE_PLATFORM_ADMIN = 'platform_admin';
+    public const ROLE_PLATFORM_ADMIN = UserRole::PLATFORM_ADMIN->value;
 
-    public const ROLE_COMPANY_ADMIN = 'company_admin';
+    public const ROLE_COMPANY_ADMIN = UserRole::COMPANY_ADMIN->value;
 
-    public const ROLE_DENTIST = 'dentist';
+    public const ROLE_DENTIST = UserRole::DENTIST->value;
 
-    public const ROLE_NURSE = 'nurse';
+    public const ROLE_NURSE = UserRole::NURSE->value;
 
     /**
      * @var list<string>

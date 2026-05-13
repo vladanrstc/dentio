@@ -3,10 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #777; padding: 5px; text-align: left; }
-        th { background: #f0f0f0; }
+        @page {
+            margin: 8mm;
+        }
+
+        body {
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 8px;
+            color: #111;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        th,
+        td {
+            border: 1px solid #777;
+            padding: 3px;
+            text-align: left;
+            vertical-align: top;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+        }
+
+        th {
+            background: #f0f0f0;
+            font-weight: bold;
+            font-size: 8px;
+        }
+
+        td {
+            font-size: 7px;
+        }
     </style>
 </head>
 <body>

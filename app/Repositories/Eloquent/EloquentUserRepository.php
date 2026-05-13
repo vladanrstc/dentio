@@ -13,6 +13,20 @@ class EloquentUserRepository implements UserRepositoryInterface
         return User::query()->create($data);
     }
 
+    public function findByEmail(string $email): ?User
+    {
+        return User::query()
+            ->where('email', $email)
+            ->first();
+    }
+
+    public function emailExists(string $email): bool
+    {
+        return User::query()
+            ->where('email', $email)
+            ->exists();
+    }
+
     public function totalCount(): int
     {
         return User::query()->count();
@@ -32,6 +46,14 @@ class EloquentUserRepository implements UserRepositoryInterface
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get();
+    }
+
+    public function findForCompany(int $companyId, int $userId): ?User
+    {
+        return User::query()
+            ->where('company_id', $companyId)
+            ->whereKey($userId)
+            ->first();
     }
 
     public function forCompanyByRoles(int $companyId, array $roles): Collection

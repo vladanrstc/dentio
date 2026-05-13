@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Enums\ReportFrequency;
 use App\Models\ReportSubscription;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
@@ -31,7 +32,7 @@ class ReportSubscriptionService
     {
         if (! in_array($reportKey, $allowedReports, true)) {
             throw ValidationException::withMessages([
-                'report_key' => ['Izabrani report nije dozvoljen.'],
+                'report_key' => [__('errors.report_not_allowed')],
             ]);
         }
 
@@ -56,9 +57,9 @@ class ReportSubscriptionService
     public function nextRunAt(string $frequency): ?Carbon
     {
         return match ($frequency) {
-            ReportSubscription::FREQUENCY_DAILY => Carbon::now()->addDay(),
-            ReportSubscription::FREQUENCY_WEEKLY => Carbon::now()->addWeek(),
-            ReportSubscription::FREQUENCY_MONTHLY => Carbon::now()->addMonth(),
+            ReportFrequency::DAILY->value => Carbon::now()->addDay(),
+            ReportFrequency::WEEKLY->value => Carbon::now()->addWeek(),
+            ReportFrequency::MONTHLY->value => Carbon::now()->addMonth(),
             default => null,
         };
     }

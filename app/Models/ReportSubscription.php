@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ReportFrequency;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,13 +11,13 @@ class ReportSubscription extends Model
 {
     use HasFactory;
 
-    public const FREQUENCY_OFF = 'off';
+    public const FREQUENCY_OFF = ReportFrequency::OFF->value;
 
-    public const FREQUENCY_DAILY = 'daily';
+    public const FREQUENCY_DAILY = ReportFrequency::DAILY->value;
 
-    public const FREQUENCY_WEEKLY = 'weekly';
+    public const FREQUENCY_WEEKLY = ReportFrequency::WEEKLY->value;
 
-    public const FREQUENCY_MONTHLY = 'monthly';
+    public const FREQUENCY_MONTHLY = ReportFrequency::MONTHLY->value;
 
     /**
      * @var list<string>

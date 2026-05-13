@@ -249,6 +249,31 @@ class ReportsApiTest extends TestCase
         $this->assertStringStartsWith('%PDF', $response->getContent());
     }
 
+    public function test_all_report_endpoints_support_csv_xlsx_and_pdf_for_allowed_roles(): void
+    {
+        [, $admin] = $this->companyUser('main');
+        $platformAdmin = User::factory()->create([
+            'company_id' => null,
+            'role' => User::ROLE_PLATFORM_ADMIN,
+        ]);
+
+        $companyReports = [
+            '/api/v1/company/reports/patients',
+            '/api/v1/company/reports/appointments',
+            '/api/v1/company/reports/interventions-financial',
+        ];
+
+        Sanctum::actingAs($admin);
+
+        foreach ($companyReports as $endpoint) {
+            $this->assertReportFormatsWork($endpoint);
+        }
+
+        Sanctum::actingAs($platformAdmin);
+
+        $this->assertReportFormatsWork('/api/v1/admin/reports/companies');
+    }
+
     public function test_report_subscription_create_and_update_sets_next_run_at(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-05-12 10:00:00'));
@@ -273,6 +298,58 @@ class ReportsApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.frequency', ReportSubscription::FREQUENCY_OFF)
             ->assertJsonPath('data.next_run_at', null);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_report_subscription_validation_uses_enum_values_and_translated_errors(): void
+    {
+        [, $admin] = $this->companyUser('main');
+
+        Sanctum::actingAs($admin);
+
+        $this->putJson('/api/v1/company/reports/subscriptions/patients', [
+            'frequency' => 'hourly',
+            'format' => 'docx',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['frequency', 'format']);
+
+        $this->putJson('/api/v1/company/reports/subscriptions/unknown-report', [
+            'frequency' => ReportSubscription::FREQUENCY_DAILY,
+            'format' => 'csv',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.report_key.0', __('errors.report_not_allowed'));
+    }
+
+    public function test_platform_admin_can_configure_companies_report_subscription(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-05-12 10:00:00'));
+        $platformAdmin = User::factory()->create([
+            'company_id' => null,
+            'role' => User::ROLE_PLATFORM_ADMIN,
+        ]);
+
+        Sanctum::actingAs($platformAdmin);
+
+        $this->putJson('/api/v1/admin/reports/subscriptions/companies', [
+            'frequency' => ReportSubscription::FREQUENCY_MONTHLY,
+            'format' => 'pdf',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.report_key', 'companies')
+            ->assertJsonPath('data.frequency', ReportSubscription::FREQUENCY_MONTHLY)
+            ->assertJsonPath('data.format', 'pdf')
+            ->assertJsonPath('data.next_run_at', Carbon::now()->addMonth()->toIso8601String());
+
+        $this->assertDatabaseHas('report_subscriptions', [
+            'user_id' => $platformAdmin->id,
+            'company_id' => null,
+            'report_key' => 'companies',
+            'frequency' => ReportSubscription::FREQUENCY_MONTHLY,
+            'format' => 'pdf',
+        ]);
 
         Carbon::setTestNow();
     }
@@ -390,5 +467,22 @@ class ReportsApiTest extends TestCase
         $line = strtok($content, "\n");
 
         return str_getcsv((string) $line);
+    }
+
+    private function assertReportFormatsWork(string $endpoint): void
+    {
+        $csvResponse = $this->get($endpoint.'?format=csv');
+        $csvResponse->assertOk();
+        $csvResponse->assertHeader('content-type', 'text/csv; charset=UTF-8');
+
+        $xlsxResponse = $this->get($endpoint.'?format=xlsx');
+        $xlsxResponse->assertOk();
+        $xlsxResponse->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertStringStartsWith('PK', $xlsxResponse->getContent());
+
+        $pdfResponse = $this->get($endpoint.'?format=pdf');
+        $pdfResponse->assertOk();
+        $pdfResponse->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $pdfResponse->getContent());
     }
 }
