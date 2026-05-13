@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Patient\UpdatePatientStatusRequest;
+use App\Models\Patient;
 use App\Services\PatientService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,10 +17,8 @@ class PatientStatusController extends Controller
     ) {
     }
 
-    public function edit(Request $request, int $patientId): View
+    public function edit(Request $request, Patient $patient): View
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId);
-        abort_if($patient === null, 404);
         Gate::authorize('changeStatus', $patient);
 
         return view('patients.status.edit', [
@@ -27,10 +26,8 @@ class PatientStatusController extends Controller
         ]);
     }
 
-    public function update(UpdatePatientStatusRequest $request, int $patientId): RedirectResponse
+    public function update(UpdatePatientStatusRequest $request, Patient $patient): RedirectResponse
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId);
-        abort_if($patient === null, 404);
         Gate::authorize('changeStatus', $patient);
 
         $validated = $request->validated();

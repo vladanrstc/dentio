@@ -64,38 +64,38 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(PatientTask::class, PatientTaskPolicy::class);
         Gate::policy(Company::class, CompanyPolicy::class);
 
-        Route::bind('patientId', function (string $value): int {
+        Route::bind('patient', function (string $value): Patient {
             $this->abortUnlessIntegerId($value);
             $user = request()->user();
 
             abort_unless($this->isCompanyUser($user), 404);
 
-            $exists = Patient::query()
+            $patient = Patient::query()
                 ->where('company_id', $user->company_id)
                 ->whereKey((int) $value)
-                ->exists();
+                ->first();
 
-            abort_unless($exists, 404);
+            abort_if($patient === null, 404);
 
-            return (int) $value;
+            return $patient;
         });
 
-        Route::bind('taskId', function (string $value): int {
+        Route::bind('task', function (string $value): PatientTask {
             $this->abortUnlessIntegerId($value);
             $user = request()->user();
-            $patientId = $this->integerRouteParameter('patientId');
+            $patient = request()->route('patient');
 
-            abort_unless($this->isCompanyUser($user) && $patientId !== null, 404);
+            abort_unless($this->isCompanyUser($user) && $patient instanceof Patient, 404);
 
-            $exists = PatientTask::query()
+            $task = PatientTask::query()
                 ->where('company_id', $user->company_id)
-                ->where('patient_id', $patientId)
+                ->where('patient_id', $patient->id)
                 ->whereKey((int) $value)
-                ->exists();
+                ->first();
 
-            abort_unless($exists, 404);
+            abort_if($task === null, 404);
 
-            return (int) $value;
+            return $task;
         });
     }
 
@@ -109,20 +109,5 @@ class AppServiceProvider extends ServiceProvider
         return $user !== null
             && $user->company_id !== null
             && in_array($user->role, [User::ROLE_COMPANY_ADMIN, User::ROLE_DENTIST, User::ROLE_NURSE], true);
-    }
-
-    private function integerRouteParameter(string $key): ?int
-    {
-        $value = request()->route($key);
-
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_string($value) && ctype_digit($value)) {
-            return (int) $value;
-        }
-
-        return null;
     }
 }

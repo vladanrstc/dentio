@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Patient\StorePatientTaskRequest;
+use App\Models\Patient;
+use App\Models\PatientTask;
 use App\Models\User;
-use App\Repositories\Contracts\PatientTaskRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\PatientService;
 use Illuminate\Http\RedirectResponse;
@@ -16,15 +17,12 @@ class PatientTaskController extends Controller
 {
     public function __construct(
         private readonly PatientService $patientService,
-        private readonly PatientTaskRepositoryInterface $patientTaskRepository,
         private readonly UserRepositoryInterface $userRepository,
     ) {
     }
 
-    public function create(Request $request, int $patientId): View
+    public function create(Request $request, Patient $patient): View
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId);
-        abort_if($patient === null, 404);
         Gate::authorize('createTask', $patient);
 
         $dentists = $this->userRepository->forCompanyByRoles((int) $request->user()->company_id, [
@@ -38,10 +36,8 @@ class PatientTaskController extends Controller
         ]);
     }
 
-    public function store(StorePatientTaskRequest $request, int $patientId): RedirectResponse
+    public function store(StorePatientTaskRequest $request, Patient $patient): RedirectResponse
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId);
-        abort_if($patient === null, 404);
         Gate::authorize('createTask', $patient);
 
         $this->patientService->addTask($request->user(), $patient, $request->validated());
@@ -49,13 +45,8 @@ class PatientTaskController extends Controller
         return back()->with('status', 'Aktivna stavka je dodata.');
     }
 
-    public function complete(Request $request, int $patientId, int $taskId): RedirectResponse
+    public function complete(Request $request, Patient $patient, PatientTask $task): RedirectResponse
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId);
-        abort_if($patient === null, 404);
-
-        $task = $this->patientTaskRepository->findForCompanyPatient((int) $request->user()->company_id, $patient->id, $taskId);
-        abort_if($task === null, 404);
         Gate::authorize('complete', $task);
 
         $this->patientService->completeTask($request->user(), $task);

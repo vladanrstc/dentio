@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Intervention;
 
+use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -72,6 +73,8 @@ class StoreInterventionRequest extends FormRequest
 
     private function patientId(): int
     {
-        return (int) $this->route('patientId');
+        $patient = $this->route('patient');
+
+        return $patient instanceof Patient ? (int) $patient->id : 0;
     }
 }

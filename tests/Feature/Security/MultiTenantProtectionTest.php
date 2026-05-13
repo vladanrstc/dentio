@@ -152,6 +152,80 @@ class MultiTenantProtectionTest extends TestCase
         ]);
     }
 
+    public function test_non_numeric_patient_route_value_returns_not_found(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])->get('/patients/not-a-number');
+
+        $response->assertNotFound();
+    }
+
+    public function test_same_company_patient_route_resolves_successfully(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])
+            ->get(route('patients.show', $data['patientA']->id));
+
+        $response->assertOk();
+    }
+
+    public function test_other_company_patient_route_returns_not_found(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])
+            ->get(route('patients.show', $data['patientB']->id));
+
+        $response->assertNotFound();
+    }
+
+    public function test_same_company_task_for_correct_patient_resolves_successfully(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])
+            ->patch(route('patients.tasks.complete', [$data['patientA']->id, $data['taskA']->id]));
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('patient_tasks', [
+            'id' => $data['taskA']->id,
+            'status' => PatientTask::STATUS_DONE,
+            'closed_by_user_id' => $data['userA']->id,
+        ]);
+    }
+
+    public function test_same_company_task_under_different_patient_returns_not_found(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])
+            ->patch(route('patients.tasks.complete', [$data['otherPatientA']->id, $data['taskA']->id]));
+
+        $response->assertNotFound();
+        $this->assertDatabaseHas('patient_tasks', [
+            'id' => $data['taskA']->id,
+            'status' => PatientTask::STATUS_OPEN,
+            'closed_by_user_id' => null,
+        ]);
+    }
+
+    public function test_other_company_task_route_returns_not_found(): void
+    {
+        $data = $this->tenantData();
+
+        $response = $this->actingAs($data['userA'])
+            ->patch(route('patients.tasks.complete', [$data['patientA']->id, $data['taskB']->id]));
+
+        $response->assertNotFound();
+        $this->assertDatabaseHas('patient_tasks', [
+            'id' => $data['taskB']->id,
+            'status' => PatientTask::STATUS_OPEN,
+            'closed_by_user_id' => null,
+        ]);
+    }
+
     public function test_company_user_cannot_assign_other_company_primary_dentist_when_creating_patient(): void
     {
         $data = $this->tenantData();

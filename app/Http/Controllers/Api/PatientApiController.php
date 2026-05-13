@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PatientCollection;
 use App\Http\Resources\PatientResource;
+use App\Models\Patient;
+use App\Models\PatientTask;
 use App\Services\PatientService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -24,11 +26,19 @@ class PatientApiController extends Controller
         return new PatientCollection($patients);
     }
 
-    public function show(Request $request, int $patientId): PatientResource
+    public function show(Request $request, Patient $patient): PatientResource
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId, true);
-        abort_if($patient === null, 404);
         Gate::authorize('view', $patient);
+        $patient->loadMissing([
+            'primaryDentist',
+            'appointments.scheduledBy',
+            'appointments.assignedTo',
+            'interventions.performedBy',
+            'tasks.assignedTo',
+            'statusLogs.changedBy',
+        ])->loadCount([
+            'tasks as open_tasks_count' => fn ($query) => $query->where('status', PatientTask::STATUS_OPEN),
+        ]);
 
         return new PatientResource($patient);
     }

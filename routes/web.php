@@ -41,19 +41,19 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/patients', [PatientController::class, 'index'])->name('patients.index');
         Route::get('/patients/create', [PatientController::class, 'create'])->name('patients.create');
         Route::post('/patients', [PatientController::class, 'store'])->name('patients.store');
-        Route::get('/patients/{patientId}/edit', [PatientController::class, 'edit'])->name('patients.edit');
-        Route::get('/patients/{patientId}/status/edit', [PatientStatusController::class, 'edit'])->name('patients.status.edit');
-        Route::get('/patients/{patientId}/tasks/create', [PatientTaskController::class, 'create'])->name('patients.tasks.create');
-        Route::get('/patients/{patientId}/appointments/create', [AppointmentController::class, 'create'])->name('patients.appointments.create');
-        Route::get('/patients/{patientId}/interventions/create', [InterventionController::class, 'create'])->name('patients.interventions.create');
-        Route::get('/patients/{patientId}', [PatientController::class, 'show'])->name('patients.show');
-        Route::put('/patients/{patientId}', [PatientController::class, 'update'])->name('patients.update');
+        Route::get('/patients/{patient}/edit', [PatientController::class, 'edit'])->name('patients.edit');
+        Route::get('/patients/{patient}/status/edit', [PatientStatusController::class, 'edit'])->name('patients.status.edit');
+        Route::get('/patients/{patient}/tasks/create', [PatientTaskController::class, 'create'])->name('patients.tasks.create');
+        Route::get('/patients/{patient}/appointments/create', [AppointmentController::class, 'create'])->name('patients.appointments.create');
+        Route::get('/patients/{patient}/interventions/create', [InterventionController::class, 'create'])->name('patients.interventions.create');
+        Route::get('/patients/{patient}', [PatientController::class, 'show'])->name('patients.show');
+        Route::put('/patients/{patient}', [PatientController::class, 'update'])->name('patients.update');
 
-        Route::post('/patients/{patientId}/appointments', [AppointmentController::class, 'store'])->name('patients.appointments.store');
-        Route::post('/patients/{patientId}/interventions', [InterventionController::class, 'store'])->name('patients.interventions.store');
-        Route::patch('/patients/{patientId}/status', [PatientStatusController::class, 'update'])->name('patients.status.update');
-        Route::post('/patients/{patientId}/tasks', [PatientTaskController::class, 'store'])->name('patients.tasks.store');
-        Route::patch('/patients/{patientId}/tasks/{taskId}/complete', [PatientTaskController::class, 'complete'])->name('patients.tasks.complete');
+        Route::post('/patients/{patient}/appointments', [AppointmentController::class, 'store'])->name('patients.appointments.store');
+        Route::post('/patients/{patient}/interventions', [InterventionController::class, 'store'])->name('patients.interventions.store');
+        Route::patch('/patients/{patient}/status', [PatientStatusController::class, 'update'])->name('patients.status.update');
+        Route::post('/patients/{patient}/tasks', [PatientTaskController::class, 'store'])->name('patients.tasks.store');
+        Route::patch('/patients/{patient}/tasks/{task}/complete', [PatientTaskController::class, 'complete'])->name('patients.tasks.complete');
 
         Route::middleware('role:company_admin')->group(function (): void {
             Route::get('/team/invites', [CompanyInviteController::class, 'index'])->name('team.invites.index');
@@ -62,7 +62,7 @@ Route::middleware('auth')->group(function (): void {
 
         Route::prefix('/api/company')->name('api.company.')->group(function (): void {
             Route::get('/patients', [PatientApiController::class, 'index'])->name('patients.index');
-            Route::get('/patients/{patientId}', [PatientApiController::class, 'show'])->name('patients.show');
+            Route::get('/patients/{patient}', [PatientApiController::class, 'show'])->name('patients.show');
         });
     });
 
