@@ -1,9 +1,13 @@
 <?php
 
+use App\Mail\DailySuperadminReportMail;
+use App\Services\DailySuperadminReportService;
 use App\Services\InviteService;
 use App\Services\ReminderDispatchService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -26,3 +30,17 @@ Artisan::command('reminders:send-due {--limit=100}', function (int $limit) {
 
     $this->info('Podsetnika dodatih u red za slanje: '.$queued);
 })->purpose('Send due reminder emails.');
+
+Artisan::command('reports:send-daily-superadmin', function () {
+    /** @var DailySuperadminReportService $service */
+    $service = app(DailySuperadminReportService::class);
+    $report = $service->buildForPreviousDay();
+    $superadminEmail = (string) config('mail.super_admin.address');
+
+    Mail::to($superadminEmail)->queue(new DailySuperadminReportMail($report));
+
+    $this->info('Dnevni izvestaj je dodat u red za slanje na: '.$superadminEmail);
+    $this->line('Datum izvestaja: '.$report['date']);
+})->purpose('Queue the previous day report email for the superadmin.');
+
+Schedule::command('reports:send-daily-superadmin')->dailyAt('07:00');
