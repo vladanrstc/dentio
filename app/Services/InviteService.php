@@ -36,7 +36,7 @@ class InviteService
             'metadata' => [],
         ]);
 
-        Mail::to($invite->email)->send(new InviteMail($invite));
+        Mail::to($invite->email)->queue(new InviteMail($invite));
 
         return $invite;
     }
@@ -57,7 +57,7 @@ class InviteService
             'metadata' => [],
         ]);
 
-        Mail::to($invite->email)->send(new InviteMail($invite));
+        Mail::to($invite->email)->queue(new InviteMail($invite));
 
         return $invite;
     }

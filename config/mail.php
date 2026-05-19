@@ -115,4 +115,8 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    'super_admin' => [
+        'address' => env('SUPER_ADMIN_EMAIL', 'superadmin@dentio.local'),
+    ],
+
 ];
