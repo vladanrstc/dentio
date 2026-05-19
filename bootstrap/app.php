@@ -15,6 +15,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureUserRole::class,
         ]);
+
+        $middleware->redirectGuestsTo(fn () => route('login.show'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
