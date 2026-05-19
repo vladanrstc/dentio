@@ -46,8 +46,9 @@ class InviteFlowTest extends TestCase
             'accepted_by_user_id' => null,
             'accepted_at' => null,
         ]);
-        Mail::assertSent(InviteMail::class, 1);
-        Mail::assertSent(InviteMail::class, fn (InviteMail $mail) => $mail->invite->email === 'owner@example.com');
+        Mail::assertQueued(InviteMail::class, 1);
+        Mail::assertQueued(InviteMail::class, fn (InviteMail $mail) => $mail->invite->email === 'owner@example.com');
+        Mail::assertNothingSent();
     }
 
     public function test_non_platform_admin_cannot_send_company_owner_invite(): void
@@ -100,8 +101,9 @@ class InviteFlowTest extends TestCase
             'accepted_by_user_id' => null,
             'accepted_at' => null,
         ]);
-        Mail::assertSent(InviteMail::class, 1);
-        Mail::assertSent(InviteMail::class, fn (InviteMail $mail) => $mail->invite->email === 'dentist@example.com');
+        Mail::assertQueued(InviteMail::class, 1);
+        Mail::assertQueued(InviteMail::class, fn (InviteMail $mail) => $mail->invite->email === 'dentist@example.com');
+        Mail::assertNothingSent();
     }
 
     public function test_company_admin_can_send_staff_invite_for_nurse(): void
@@ -124,7 +126,9 @@ class InviteFlowTest extends TestCase
             'role' => User::ROLE_NURSE,
             'invited_by_user_id' => $companyAdmin->id,
         ]);
-        Mail::assertSent(InviteMail::class, 1);
+        Mail::assertQueued(InviteMail::class, 1);
+        Mail::assertQueued(InviteMail::class, fn (InviteMail $mail) => $mail->invite->email === 'nurse@example.com');
+        Mail::assertNothingSent();
     }
 
     public function test_dentist_and_nurse_cannot_access_team_invite_page(): void
