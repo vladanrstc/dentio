@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Patient\StorePatientRequest;
 use App\Http\Requests\Patient\UpdatePatientRequest;
+use App\Models\Patient;
+use App\Models\PatientTask;
 use App\Models\User;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\PatientService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class PatientController extends Controller
@@ -55,10 +58,19 @@ class PatientController extends Controller
             ->with('status', 'Pacijent je uspesno dodat.');
     }
 
-    public function show(Request $request, int $patientId): View
+    public function show(Request $request, Patient $patient): View
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId, true);
-        abort_if($patient === null, 404);
+        Gate::authorize('view', $patient);
+        $patient->loadMissing([
+            'primaryDentist',
+            'appointments.scheduledBy',
+            'appointments.assignedTo',
+            'interventions.performedBy',
+            'tasks.assignedTo',
+            'statusLogs.changedBy',
+        ])->loadCount([
+            'tasks as open_tasks_count' => fn ($query) => $query->where('status', PatientTask::STATUS_OPEN),
+        ]);
 
         $dentists = $this->userRepository->forCompanyByRoles((int) $request->user()->company_id, [
             User::ROLE_DENTIST,
@@ -71,10 +83,9 @@ class PatientController extends Controller
         ]);
     }
 
-    public function edit(Request $request, int $patientId): View
+    public function edit(Request $request, Patient $patient): View
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId);
-        abort_if($patient === null, 404);
+        Gate::authorize('update', $patient);
 
         $dentists = $this->userRepository->forCompanyByRoles((int) $request->user()->company_id, [
             User::ROLE_DENTIST,
@@ -87,10 +98,9 @@ class PatientController extends Controller
         ]);
     }
 
-    public function update(UpdatePatientRequest $request, int $patientId): RedirectResponse
+    public function update(UpdatePatientRequest $request, Patient $patient): RedirectResponse
     {
-        $patient = $this->patientService->findForUser($request->user(), $patientId);
-        abort_if($patient === null, 404);
+        Gate::authorize('update', $patient);
 
         $this->patientService->update($request->user(), $patient, $request->validated());
 

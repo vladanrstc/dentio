@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Appointment;
 
 use App\Models\Appointment;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,7 +11,11 @@ class StoreAppointmentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        return $user !== null
+            && $user->company_id !== null
+            && in_array($user->role, [User::ROLE_COMPANY_ADMIN, User::ROLE_DENTIST, User::ROLE_NURSE], true);
     }
 
     /**
@@ -26,11 +31,19 @@ class StoreAppointmentRequest extends FormRequest
                 Appointment::TYPE_INTERVENTION,
                 Appointment::TYPE_CONTROL,
             ])],
-            'assigned_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'assigned_user_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')->where('company_id', $this->companyId()),
+            ],
             'notes' => ['nullable', 'string'],
             'reminder_staff_at' => ['nullable', 'date'],
             'reminder_patient_at' => ['nullable', 'date'],
         ];
     }
-}
 
+    private function companyId(): int
+    {
+        return (int) $this->user()?->company_id;
+    }
+}
