@@ -30,13 +30,13 @@ class InviteService
             'company_id' => null,
             'email' => mb_strtolower(trim($email)),
             'role' => User::ROLE_COMPANY_ADMIN,
-            'token' => Str::random(64),
+            'token' => Str::random(32),
             'invited_by_user_id' => null,
             'expires_at' => Carbon::now()->addDays($expiresInDays ?? 14),
             'metadata' => [],
         ]);
 
-        Mail::to($invite->email)->queue(new InviteMail($invite));
+        Mail::to($invite->email)->send(new InviteMail($invite));
 
         return $invite;
     }
@@ -51,13 +51,13 @@ class InviteService
             'company_id' => $inviter->company_id,
             'email' => mb_strtolower(trim($email)),
             'role' => $role,
-            'token' => Str::random(64),
+            'token' => Str::random(32),
             'invited_by_user_id' => $inviter->id,
             'expires_at' => Carbon::now()->addDays($expiresInDays ?? 7),
             'metadata' => [],
         ]);
 
-        Mail::to($invite->email)->queue(new InviteMail($invite));
+        Mail::to($invite->email)->send(new InviteMail($invite));
 
         return $invite;
     }

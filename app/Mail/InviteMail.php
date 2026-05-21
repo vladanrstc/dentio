@@ -4,13 +4,12 @@ namespace App\Mail;
 
 use App\Models\Invite;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class InviteMail extends Mailable implements ShouldQueue
+class InviteMail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -32,6 +31,7 @@ class InviteMail extends Mailable implements ShouldQueue
             view: 'emails.invite',
             with: [
                 'invite' => $this->invite,
+                'inviteUrl' => rtrim((string) config('app.frontend_url'), '/').'/invites/accept/'.$this->invite->token,
             ],
         );
     }

@@ -46,9 +46,9 @@ class InviteFlowTest extends TestCase
             'accepted_by_user_id' => null,
             'accepted_at' => null,
         ]);
-        Mail::assertQueued(InviteMail::class, 1);
-        Mail::assertQueued(InviteMail::class, fn (InviteMail $mail) => $mail->invite->email === 'owner@example.com');
-        Mail::assertNothingSent();
+        Mail::assertSent(InviteMail::class, 1);
+        Mail::assertSent(InviteMail::class, fn (InviteMail $mail) => $mail->invite->email === 'owner@example.com');
+        Mail::assertNothingQueued();
     }
 
     public function test_non_platform_admin_cannot_send_company_owner_invite(): void
@@ -101,9 +101,9 @@ class InviteFlowTest extends TestCase
             'accepted_by_user_id' => null,
             'accepted_at' => null,
         ]);
-        Mail::assertQueued(InviteMail::class, 1);
-        Mail::assertQueued(InviteMail::class, fn (InviteMail $mail) => $mail->invite->email === 'dentist@example.com');
-        Mail::assertNothingSent();
+        Mail::assertSent(InviteMail::class, 1);
+        Mail::assertSent(InviteMail::class, fn (InviteMail $mail) => $mail->invite->email === 'dentist@example.com');
+        Mail::assertNothingQueued();
     }
 
     public function test_company_admin_can_send_staff_invite_for_nurse(): void
@@ -126,9 +126,113 @@ class InviteFlowTest extends TestCase
             'role' => User::ROLE_NURSE,
             'invited_by_user_id' => $companyAdmin->id,
         ]);
-        Mail::assertQueued(InviteMail::class, 1);
-        Mail::assertQueued(InviteMail::class, fn (InviteMail $mail) => $mail->invite->email === 'nurse@example.com');
-        Mail::assertNothingSent();
+        Mail::assertSent(InviteMail::class, 1);
+        Mail::assertSent(InviteMail::class, fn (InviteMail $mail) => $mail->invite->email === 'nurse@example.com');
+        Mail::assertNothingQueued();
+    }
+
+    public function test_api_company_staff_invite_uses_authenticated_users_company(): void
+    {
+        Mail::fake();
+        $company = Company::factory()->create();
+        $otherCompany = Company::factory()->create();
+        $companyAdmin = User::factory()->companyAdmin()->forCompany($company)->create();
+
+        $response = $this->actingAs($companyAdmin, 'sanctum')
+            ->postJson('/api/v1/company/invites', [
+                'email' => 'api-dentist@example.com',
+                'role' => User::ROLE_DENTIST,
+            ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('invites', [
+            'company_id' => $company->id,
+            'email' => 'api-dentist@example.com',
+            'role' => User::ROLE_DENTIST,
+            'invited_by_user_id' => $companyAdmin->id,
+        ]);
+        $this->assertDatabaseMissing('invites', [
+            'company_id' => $otherCompany->id,
+            'email' => 'api-dentist@example.com',
+        ]);
+    }
+
+    public function test_api_company_staff_invite_rejects_company_fields(): void
+    {
+        Mail::fake();
+        $company = Company::factory()->create();
+        $otherCompany = Company::factory()->create();
+        $companyAdmin = User::factory()->companyAdmin()->forCompany($company)->create();
+
+        $response = $this->actingAs($companyAdmin, 'sanctum')
+            ->postJson('/api/v1/company/invites', [
+                'email' => 'cross-company@example.com',
+                'role' => User::ROLE_DENTIST,
+                'company_id' => $otherCompany->id,
+                'company_name' => 'Other Clinic',
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['company_id', 'company_name']);
+        $this->assertDatabaseMissing('invites', [
+            'email' => 'cross-company@example.com',
+        ]);
+        Mail::assertNothingQueued();
+    }
+
+    public function test_api_company_staff_invite_rejects_non_worker_roles(): void
+    {
+        Mail::fake();
+        $companyAdmin = User::factory()->companyAdmin()->create();
+
+        $this->actingAs($companyAdmin, 'sanctum')
+            ->postJson('/api/v1/company/invites', [
+                'email' => 'owner-role@example.com',
+                'role' => User::ROLE_COMPANY_ADMIN,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role']);
+
+        $this->assertDatabaseMissing('invites', [
+            'email' => 'owner-role@example.com',
+        ]);
+        Mail::assertNothingQueued();
+    }
+
+    public function test_api_platform_admin_can_send_company_owner_invite(): void
+    {
+        Mail::fake();
+        $platformAdmin = User::factory()->platformAdmin()->create();
+
+        $response = $this->actingAs($platformAdmin, 'sanctum')
+            ->postJson('/api/v1/admin/invites/company-owner', [
+                'email' => 'api-owner@example.com',
+            ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('invites', [
+            'company_id' => null,
+            'email' => 'api-owner@example.com',
+            'role' => User::ROLE_COMPANY_ADMIN,
+            'invited_by_user_id' => null,
+        ]);
+    }
+
+    public function test_api_company_admin_cannot_send_company_owner_invite(): void
+    {
+        Mail::fake();
+        $companyAdmin = User::factory()->companyAdmin()->create();
+
+        $this->actingAs($companyAdmin, 'sanctum')
+            ->postJson('/api/v1/admin/invites/company-owner', [
+                'email' => 'forbidden-owner@example.com',
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('invites', [
+            'email' => 'forbidden-owner@example.com',
+        ]);
+        Mail::assertNothingQueued();
     }
 
     public function test_dentist_and_nurse_cannot_access_team_invite_page(): void
@@ -231,6 +335,57 @@ class InviteFlowTest extends TestCase
             'accepted_by_user_id' => $user->id,
         ]);
         $this->assertNotNull($invite->fresh()->accepted_at);
+    }
+
+    public function test_api_accept_invite_returns_success_message(): void
+    {
+        $company = Company::factory()->create();
+        $invite = Invite::factory()->create([
+            'company_id' => $company->id,
+            'email' => 'api-staff-accept@example.com',
+            'role' => User::ROLE_DENTIST,
+            'expires_at' => now()->addDay(),
+            'accepted_at' => null,
+        ]);
+
+        $this->postJson('/api/v1/invites/'.$invite->token.'/accept', [
+            'first_name' => 'Api',
+            'last_name' => 'Staff',
+            'phone' => '060555666',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])
+            ->assertCreated()
+            ->assertJson([
+                'message' => 'Invite accepted successfully.',
+            ]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'api-staff-accept@example.com',
+            'company_id' => $company->id,
+            'role' => User::ROLE_DENTIST,
+        ]);
+        $this->assertNotNull($invite->fresh()->accepted_at);
+    }
+
+    public function test_api_accept_invite_returns_clear_message_for_used_invite(): void
+    {
+        $invite = Invite::factory()->create([
+            'accepted_at' => now(),
+            'accepted_by_user_id' => User::factory()->create()->id,
+            'expires_at' => now()->addDay(),
+        ]);
+
+        $this->postJson('/api/v1/invites/'.$invite->token.'/accept', [
+            'first_name' => 'Used',
+            'last_name' => 'Invite',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])
+            ->assertGone()
+            ->assertJson([
+                'message' => 'Pozivnica nije validna ili je istekla.',
+            ]);
     }
 
     /**

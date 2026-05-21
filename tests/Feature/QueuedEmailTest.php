@@ -20,7 +20,7 @@ class QueuedEmailTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_invite_emails_are_queued_not_sent_synchronously(): void
+    public function test_invite_emails_are_sent_immediately(): void
     {
         Mail::fake();
 
@@ -39,10 +39,10 @@ class QueuedEmailTest extends TestCase
         ]);
         $staffInvite = $service->sendStaffInvite($inviter, 'staff@example.com', User::ROLE_DENTIST);
 
-        Mail::assertQueued(InviteMail::class, 2);
-        Mail::assertQueued(InviteMail::class, fn (InviteMail $mail) => $mail->invite->is($ownerInvite));
-        Mail::assertQueued(InviteMail::class, fn (InviteMail $mail) => $mail->invite->is($staffInvite));
-        Mail::assertNothingSent();
+        Mail::assertSent(InviteMail::class, 2);
+        Mail::assertSent(InviteMail::class, fn (InviteMail $mail) => $mail->invite->is($ownerInvite));
+        Mail::assertSent(InviteMail::class, fn (InviteMail $mail) => $mail->invite->is($staffInvite));
+        Mail::assertNothingQueued();
     }
 
     public function test_reminders_send_due_dispatches_only_due_pending_reminder_jobs(): void

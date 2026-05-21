@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Http\Requests\Invite;
+namespace App\Http\Requests\Api\V1\Report;
 
-use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class SendOwnerInviteRequest extends FormRequest
+class PatientsReportRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->role === User::ROLE_PLATFORM_ADMIN;
+        return true;
     }
 
     /**
@@ -18,8 +18,7 @@ class SendOwnerInviteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email', 'max:255'],
+            'format' => ['nullable', Rule::in(['csv', 'xlsx', 'pdf'])],
         ];
     }
 }
-
