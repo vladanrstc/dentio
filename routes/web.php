@@ -19,9 +19,15 @@ Route::get('/', function () {
         return redirect()->route('login.show');
     }
 
-    return auth()->user()->role === User::ROLE_PLATFORM_ADMIN
-        ? redirect()->route('admin.dashboard')
-        : redirect()->route('dashboard.index');
+    if (auth()->user()->role === User::ROLE_PLATFORM_ADMIN) {
+        return redirect()->route('admin.dashboard');
+    }
+
+    if (auth()->user()->role === User::ROLE_PATIENT) {
+        return redirect()->away(rtrim((string) config('app.frontend_url'), '/').'/patient-portal');
+    }
+
+    return redirect()->route('dashboard.index');
 })->name('home');
 
 Route::middleware('guest')->group(function (): void {

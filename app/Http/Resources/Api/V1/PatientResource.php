@@ -26,6 +26,7 @@ class PatientResource extends JsonResource
         return [
             'id' => $this->id,
             'company_id' => $this->company_id,
+            'user_id' => $this->user_id,
             'primary_dentist_id' => $this->primary_dentist_id,
             'manual_status_changed_by_user_id' => $this->manual_status_changed_by_user_id,
             'first_name' => $this->first_name,

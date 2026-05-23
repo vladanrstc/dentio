@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -23,6 +24,8 @@ class User extends Authenticatable
     public const ROLE_DENTIST = 'dentist';
 
     public const ROLE_NURSE = 'nurse';
+
+    public const ROLE_PATIENT = 'patient';
 
     /**
      * @var list<string>
@@ -94,6 +97,11 @@ class User extends Authenticatable
         return $this->hasMany(Invite::class, 'accepted_by_user_id');
     }
 
+    public function patient(): HasOne
+    {
+        return $this->hasOne(Patient::class);
+    }
+
     public function fullName(): string
     {
         $firstName = trim((string) $this->first_name);
@@ -111,5 +119,10 @@ class User extends Authenticatable
     public function isPlatformAdmin(): bool
     {
         return $this->role === self::ROLE_PLATFORM_ADMIN;
+    }
+
+    public function isPatient(): bool
+    {
+        return $this->role === self::ROLE_PATIENT;
     }
 }

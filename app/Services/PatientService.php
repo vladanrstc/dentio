@@ -6,6 +6,7 @@ use App\Models\Patient;
 use App\Models\PatientStatusLog;
 use App\Models\PatientTask;
 use App\Models\User;
+use App\Models\Invite;
 use App\Repositories\Contracts\PatientRepositoryInterface;
 use App\Repositories\Contracts\PatientTaskRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -17,6 +18,7 @@ class PatientService
     public function __construct(
         private readonly PatientRepositoryInterface $patientRepository,
         private readonly PatientTaskRepositoryInterface $patientTaskRepository,
+        private readonly InviteService $inviteService,
     ) {
     }
 
@@ -107,6 +109,11 @@ class PatientService
         }
 
         return $this->patientTaskRepository->markDone($task, $user->id);
+    }
+
+    public function inviteToPortal(User $user, Patient $patient): Invite
+    {
+        return $this->inviteService->sendPatientInvite($user, $patient);
     }
 
     private function companyIdOrFail(User $user): int

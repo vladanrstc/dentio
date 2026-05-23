@@ -11,6 +11,7 @@ use App\Http\Requests\Patient\UpdatePatientRequest;
 use App\Http\Requests\Patient\UpdatePatientStatusRequest;
 use App\Http\Resources\Api\V1\AppointmentResource;
 use App\Http\Resources\Api\V1\InterventionResource;
+use App\Http\Resources\Api\V1\InviteResource;
 use App\Http\Resources\Api\V1\PatientResource;
 use App\Http\Resources\Api\V1\PatientTaskResource;
 use App\Models\Patient;
@@ -156,6 +157,13 @@ class PatientController extends ApiController
         $intervention = $this->interventionService->record($request->user(), $patient, $request->validated());
 
         return new InterventionResource($intervention->loadMissing(['patient', 'appointment', 'performedBy']));
+    }
+
+    public function invite(Request $request, Patient $patient): InviteResource
+    {
+        Gate::authorize('update', $patient);
+
+        return new InviteResource($this->patientService->inviteToPortal($request->user(), $patient));
     }
 
     private function loadPatientForResponse(Patient $patient): Patient

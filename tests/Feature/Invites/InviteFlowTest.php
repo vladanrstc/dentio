@@ -5,6 +5,8 @@ namespace Tests\Feature\Invites;
 use App\Mail\InviteMail;
 use App\Models\Company;
 use App\Models\Invite;
+use App\Models\Patient;
+use App\Models\PatientTask;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -386,6 +388,192 @@ class InviteFlowTest extends TestCase
             ->assertJson([
                 'message' => 'Pozivnica nije validna ili je istekla.',
             ]);
+    }
+
+    public function test_company_user_can_invite_patient_to_portal_and_accept_links_patient(): void
+    {
+        Mail::fake();
+        $company = Company::factory()->create();
+        $companyAdmin = User::factory()->companyAdmin()->forCompany($company)->create();
+        $patient = Patient::factory()->create([
+            'company_id' => $company->id,
+            'email' => 'patient@example.com',
+            'user_id' => null,
+        ]);
+
+        $response = $this->actingAs($companyAdmin, 'sanctum')
+            ->postJson('/api/v1/patients/'.$patient->id.'/portal-invite');
+
+        $response->assertCreated()
+            ->assertJsonPath('data.email', 'patient@example.com')
+            ->assertJsonPath('data.role', User::ROLE_PATIENT)
+            ->assertJsonPath('data.metadata.patient_id', $patient->id);
+
+        $invite = Invite::query()->where('email', 'patient@example.com')->firstOrFail();
+
+        $this->postJson('/api/v1/invites/'.$invite->token.'/accept', [
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertCreated();
+
+        $user = User::query()->where('email', 'patient@example.com')->firstOrFail();
+
+        $this->assertSame(User::ROLE_PATIENT, $user->role);
+        $this->assertSame($company->id, $user->company_id);
+        $this->assertSame($user->id, $patient->fresh()->user_id);
+        $this->assertNotNull($invite->fresh()->accepted_at);
+        Mail::assertSent(InviteMail::class, 1);
+    }
+
+    public function test_api_patient_invite_accept_does_not_require_profile_fields(): void
+    {
+        $company = Company::factory()->create();
+        $patient = Patient::factory()->create([
+            'company_id' => $company->id,
+            'first_name' => 'Portal',
+            'last_name' => 'Patient',
+            'email' => 'portal-patient@example.com',
+            'phone' => '060123123',
+            'user_id' => null,
+        ]);
+        $invite = Invite::factory()->create([
+            'company_id' => $company->id,
+            'email' => 'portal-patient@example.com',
+            'role' => User::ROLE_PATIENT,
+            'expires_at' => now()->addDay(),
+            'accepted_at' => null,
+            'metadata' => ['patient_id' => $patient->id],
+        ]);
+
+        $this->postJson('/api/v1/invites/'.$invite->token.'/accept', [
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertCreated();
+
+        $user = User::query()->where('email', 'portal-patient@example.com')->firstOrFail();
+
+        $this->assertSame('Portal', $user->first_name);
+        $this->assertSame('Patient', $user->last_name);
+        $this->assertSame('060123123', $user->phone);
+        $this->assertSame($user->id, $patient->fresh()->user_id);
+    }
+
+    public function test_api_patient_invite_returns_clear_error_when_patient_already_has_user(): void
+    {
+        $company = Company::factory()->create();
+        $linkedUser = User::factory()->forCompany($company)->create([
+            'role' => User::ROLE_PATIENT,
+        ]);
+        $patient = Patient::factory()->create([
+            'company_id' => $company->id,
+            'email' => 'already-linked@example.com',
+            'user_id' => $linkedUser->id,
+        ]);
+        $invite = Invite::factory()->create([
+            'company_id' => $company->id,
+            'email' => 'already-linked@example.com',
+            'role' => User::ROLE_PATIENT,
+            'expires_at' => now()->addDay(),
+            'accepted_at' => null,
+            'metadata' => ['patient_id' => $patient->id],
+        ]);
+
+        $this->postJson('/api/v1/invites/'.$invite->token.'/accept', [
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['invite'])
+            ->assertJsonPath('errors.invite.0', 'Pacijent vec ima povezan portal nalog.');
+
+        $this->assertNull($invite->fresh()->accepted_at);
+    }
+
+    public function test_patient_portal_uses_authenticated_patient_link(): void
+    {
+        $company = Company::factory()->create();
+        $patientUser = User::factory()->forCompany($company)->create([
+            'role' => User::ROLE_PATIENT,
+            'email' => 'linked-patient@example.com',
+        ]);
+        $patient = Patient::factory()->create([
+            'company_id' => $company->id,
+            'user_id' => $patientUser->id,
+            'email' => 'linked-patient@example.com',
+        ]);
+        $otherPatient = Patient::factory()->create([
+            'company_id' => $company->id,
+            'email' => 'other-patient@example.com',
+        ]);
+
+        $response = $this->actingAs($patientUser, 'sanctum')
+            ->getJson('/api/v1/patient-portal/me');
+
+        $response->assertOk()
+            ->assertJsonPath('data.patient.id', $patient->id)
+            ->assertJsonMissing(['id' => $otherPatient->id])
+            ->assertJsonMissing(['email' => 'other-patient@example.com']);
+    }
+
+    public function test_patient_portal_includes_open_and_completed_tasks_for_authenticated_patient(): void
+    {
+        $company = Company::factory()->create();
+        $patientUser = User::factory()->forCompany($company)->create([
+            'role' => User::ROLE_PATIENT,
+            'email' => 'task-patient@example.com',
+        ]);
+        $staffUser = User::factory()->forCompany($company)->create();
+        $patient = Patient::factory()->create([
+            'company_id' => $company->id,
+            'user_id' => $patientUser->id,
+            'email' => 'task-patient@example.com',
+        ]);
+        $otherPatient = Patient::factory()->create([
+            'company_id' => $company->id,
+        ]);
+
+        $openTask = PatientTask::factory()->create([
+            'company_id' => $company->id,
+            'patient_id' => $patient->id,
+            'created_by_user_id' => $staffUser->id,
+            'assigned_to_user_id' => $staffUser->id,
+            'description' => 'Doneti snimak na sledeci pregled.',
+            'status' => PatientTask::STATUS_OPEN,
+        ]);
+        $completedTask = PatientTask::factory()->create([
+            'company_id' => $company->id,
+            'patient_id' => $patient->id,
+            'created_by_user_id' => $staffUser->id,
+            'closed_by_user_id' => $staffUser->id,
+            'description' => 'Popunjena anamneza.',
+            'status' => PatientTask::STATUS_DONE,
+            'closed_at' => now(),
+        ]);
+        PatientTask::factory()->create([
+            'company_id' => $company->id,
+            'patient_id' => $otherPatient->id,
+            'description' => 'Tudji zadatak.',
+            'status' => PatientTask::STATUS_OPEN,
+        ]);
+
+        $response = $this->actingAs($patientUser, 'sanctum')
+            ->getJson('/api/v1/patient-portal/me');
+
+        $response->assertOk()
+            ->assertJsonPath('data.open_tasks.0.id', $openTask->id)
+            ->assertJsonPath('data.open_tasks.0.description', 'Doneti snimak na sledeci pregled.')
+            ->assertJsonPath('data.completed_tasks.0.id', $completedTask->id)
+            ->assertJsonPath('data.completed_tasks.0.description', 'Popunjena anamneza.')
+            ->assertJsonMissing(['description' => 'Tudji zadatak.']);
+    }
+
+    public function test_staff_cannot_access_patient_portal_endpoint(): void
+    {
+        $companyAdmin = User::factory()->companyAdmin()->create();
+
+        $this->actingAs($companyAdmin, 'sanctum')
+            ->getJson('/api/v1/patient-portal/me')
+            ->assertForbidden();
     }
 
     /**

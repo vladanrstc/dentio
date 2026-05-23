@@ -47,8 +47,14 @@ class AuthController extends Controller
 
     private function redirectByRole(User $user): RedirectResponse
     {
-        return $user->role === User::ROLE_PLATFORM_ADMIN
-            ? redirect()->route('admin.dashboard')
-            : redirect()->route('dashboard.index');
+        if ($user->role === User::ROLE_PLATFORM_ADMIN) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        if ($user->role === User::ROLE_PATIENT) {
+            return redirect()->away(rtrim((string) config('app.frontend_url'), '/').'/patient-portal');
+        }
+
+        return redirect()->route('dashboard.index');
     }
 }

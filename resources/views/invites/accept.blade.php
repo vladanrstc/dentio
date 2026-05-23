@@ -10,20 +10,22 @@
             @csrf
             <input type="hidden" name="requires_company" value="{{ $requiresCompany ? 1 : 0 }}">
 
-            <label class="field">
-                <span>Ime</span>
-                <input type="text" name="first_name" value="{{ old('first_name') }}" required>
-            </label>
+            @unless($isPatientInvite)
+                <label class="field">
+                    <span>Ime</span>
+                    <input type="text" name="first_name" value="{{ old('first_name') }}" required>
+                </label>
 
-            <label class="field">
-                <span>Prezime</span>
-                <input type="text" name="last_name" value="{{ old('last_name') }}" required>
-            </label>
+                <label class="field">
+                    <span>Prezime</span>
+                    <input type="text" name="last_name" value="{{ old('last_name') }}" required>
+                </label>
 
-            <label class="field">
-                <span>Telefon</span>
-                <input type="text" name="phone" value="{{ old('phone') }}">
-            </label>
+                <label class="field">
+                    <span>Telefon</span>
+                    <input type="text" name="phone" value="{{ old('phone') }}">
+                </label>
+            @endunless
 
             <label class="field">
                 <span>Email (iz pozivnice)</span>
@@ -40,7 +42,7 @@
                 <input type="password" name="password_confirmation" required>
             </label>
 
-            @if($requiresCompany)
+            @if($requiresCompany && ! $isPatientInvite)
                 <label class="field">
                     <span>Naziv kompanije</span>
                     <input type="text" name="company_name" value="{{ old('company_name') }}" required>

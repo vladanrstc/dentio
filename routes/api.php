@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\InviteController;
 use App\Http\Controllers\Api\V1\PatientController;
+use App\Http\Controllers\Api\V1\PatientPortalController;
 use App\Http\Controllers\Api\V1\PlatformAdminController;
 use App\Http\Controllers\Api\V1\ReportController;
 use Illuminate\Support\Facades\Route;
@@ -37,6 +38,7 @@ Route::prefix('v1')->group(function (): void {
             Route::patch('/patients/{patient}/tasks/{task}/complete', [PatientController::class, 'completeTask']);
             Route::post('/patients/{patient}/appointments', [PatientController::class, 'storeAppointment']);
             Route::post('/patients/{patient}/interventions', [PatientController::class, 'storeIntervention']);
+            Route::post('/patients/{patient}/portal-invite', [PatientController::class, 'invite']);
 
             Route::get('/reports/patients', [ReportController::class, 'patients']);
             Route::get('/reports/appointments', [ReportController::class, 'appointments']);
@@ -47,6 +49,10 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/dashboard', [PlatformAdminController::class, 'dashboard']);
             Route::get('/companies/{company}', [PlatformAdminController::class, 'company']);
             Route::post('/invites/company-owner', [PlatformAdminController::class, 'inviteCompanyOwner']);
+        });
+
+        Route::middleware('role:patient')->prefix('patient-portal')->group(function (): void {
+            Route::get('/me', [PatientPortalController::class, 'show']);
         });
     });
 });

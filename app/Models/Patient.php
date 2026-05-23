@@ -24,6 +24,7 @@ class Patient extends Model
      */
     protected $fillable = [
         'company_id',
+        'user_id',
         'primary_dentist_id',
         'manual_status_changed_by_user_id',
         'first_name',
@@ -50,6 +51,11 @@ class Patient extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function primaryDentist(): BelongsTo

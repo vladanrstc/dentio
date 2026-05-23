@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Invite\AcceptInviteRequest;
 use App\Services\InviteService;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -23,6 +24,7 @@ class InviteAcceptanceController extends Controller
         return view('invites.accept', [
             'invite' => $invite,
             'requiresCompany' => $invite->company_id === null,
+            'isPatientInvite' => $invite->role === User::ROLE_PATIENT,
         ]);
     }
 
@@ -36,6 +38,10 @@ class InviteAcceptanceController extends Controller
         $user = $this->inviteService->acceptInvite($invite, $request->validated());
         Auth::login($user);
         $request->session()->regenerate();
+
+        if ($user->role === User::ROLE_PATIENT) {
+            return redirect()->away(rtrim((string) config('app.frontend_url'), '/').'/patient-portal');
+        }
 
         return redirect()->route('dashboard.index')
             ->with('status', 'Naloga je aktiviran i spreman za rad.');
