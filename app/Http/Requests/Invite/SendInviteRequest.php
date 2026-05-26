@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Invite;
 
-use App\Models\User;
+use App\Enums\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -20,8 +20,7 @@ class SendInviteRequest extends FormRequest
     {
         return [
             'email' => ['required', 'email'],
-            'role' => ['required', Rule::in([User::ROLE_DENTIST, User::ROLE_NURSE])],
+            'role' => ['required', Rule::in([UserRole::DENTIST->value, UserRole::NURSE->value])],
         ];
     }
 }
-

@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Exceptions\MissingCompanyContextException;
+use App\Exceptions\TenantResourceNotFoundException;
 use App\Models\Intervention;
 use App\Models\Patient;
 use App\Models\PatientTask;
@@ -10,22 +12,21 @@ use App\Models\User;
 use App\Repositories\Contracts\InterventionRepositoryInterface;
 use App\Repositories\Contracts\PatientTaskRepositoryInterface;
 use App\Repositories\Contracts\ReminderRepositoryInterface;
+use App\Services\Contracts\InterventionServiceInterface;
 use Illuminate\Support\Carbon;
-use RuntimeException;
 
-class InterventionService
+class InterventionService implements InterventionServiceInterface
 {
     public function __construct(
         private readonly InterventionRepositoryInterface $interventionRepository,
         private readonly PatientTaskRepositoryInterface $patientTaskRepository,
         private readonly ReminderRepositoryInterface $reminderRepository,
-    ) {
-    }
+    ) {}
 
     public function record(User $actor, Patient $patient, array $data): Intervention
     {
         if ($patient->company_id !== $this->companyIdOrFail($actor)) {
-            throw new RuntimeException('Pacijent ne pripada kompaniji korisnika.');
+            throw new TenantResourceNotFoundException(__('errors.patient_not_found'));
         }
 
         $intervention = $this->interventionRepository->create([
@@ -103,10 +104,9 @@ class InterventionService
     private function companyIdOrFail(User $user): int
     {
         if (! $user->company_id) {
-            throw new RuntimeException('Korisnik nema dodeljenu kompaniju.');
+            throw new MissingCompanyContextException(__('errors.missing_company'));
         }
 
         return (int) $user->company_id;
     }
 }
-

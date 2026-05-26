@@ -2,12 +2,13 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Patient;
 use App\Models\PatientTask;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\Patient
+ * @mixin Patient
  */
 class PatientResource extends JsonResource
 {
@@ -32,10 +33,31 @@ class PatientResource extends JsonResource
             'address' => $this->address,
             'phone' => $this->phone,
             'email' => $this->email,
+            'notes' => $this->notes,
+            'primary_dentist_id' => $this->primary_dentist_id,
             'manual_status' => $this->manual_status,
             'manual_status_reason' => $this->manual_status_reason,
+            'manual_status_changed_at' => $this->manual_status_changed_at?->toIso8601String(),
             'primary_dentist' => $this->whenLoaded('primaryDentist', fn () => $this->primaryDentist?->fullName()),
+            'primary_dentist_user' => $this->whenLoaded('primaryDentist', fn () => $this->primaryDentist ? [
+                'id' => $this->primaryDentist->id,
+                'name' => $this->primaryDentist->fullName(),
+            ] : null),
             'open_tasks_count' => $openTaskCount,
+            'active_tasks' => $this->whenLoaded(
+                'tasks',
+                fn () => PatientTaskResource::collection($this->tasks->where('status', PatientTask::STATUS_OPEN)->values())
+            ),
+            'active_items' => $this->whenLoaded(
+                'tasks',
+                fn () => PatientTaskResource::collection($this->tasks->where('status', PatientTask::STATUS_OPEN)->values())
+            ),
+            'completed_tasks' => $this->whenLoaded(
+                'tasks',
+                fn () => PatientTaskResource::collection($this->tasks->where('status', PatientTask::STATUS_DONE)->values())
+            ),
+            'appointments' => $this->whenLoaded('appointments', fn () => AppointmentResource::collection($this->appointments)),
+            'interventions' => $this->whenLoaded('interventions', fn () => InterventionResource::collection($this->interventions)),
             'financials' => [
                 'total_cost' => $totalCost,
                 'paid_amount' => $paidAmount,
@@ -46,4 +68,3 @@ class PatientResource extends JsonResource
         ];
     }
 }
-

@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Patient;
 
-use App\Models\Patient;
+use App\Enums\PatientStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,15 +21,9 @@ class UpdatePatientStatusRequest extends FormRequest
         return [
             'manual_status' => [
                 'required',
-                Rule::in([
-                    Patient::STATUS_ACTIVE,
-                    Patient::STATUS_INACTIVE,
-                    Patient::STATUS_TRANSFERRED,
-                    Patient::STATUS_COMPLETED,
-                ]),
+                Rule::enum(PatientStatus::class),
             ],
             'manual_status_reason' => ['nullable', 'string', 'max:2000'],
         ];
     }
 }
-

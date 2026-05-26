@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use App\Exceptions\InviteActionNotAllowedException;
+use App\Exceptions\InviteResendNotAllowedException;
+use App\Exceptions\MissingCompanyContextException;
+use App\Exceptions\TenantResourceNotFoundException;
 use App\Mail\InviteMail;
 use App\Models\Company;
 use App\Models\Invite;
@@ -13,7 +17,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use RuntimeException;
+use Illuminate\Validation\ValidationException;
 
 class InviteService
 {
@@ -21,18 +25,20 @@ class InviteService
         private readonly InviteRepositoryInterface $inviteRepository,
         private readonly CompanyRepositoryInterface $companyRepository,
         private readonly UserRepositoryInterface $userRepository,
-    ) {
-    }
+    ) {}
 
     public function sendOwnerInvite(string $email, ?int $expiresInDays = null): Invite
     {
+        $email = mb_strtolower(trim($email));
+        $this->ensureNoActiveDuplicateInvite(null, $email, User::ROLE_COMPANY_ADMIN);
+
         $invite = $this->inviteRepository->create([
             'company_id' => null,
-            'email' => mb_strtolower(trim($email)),
+            'email' => $email,
             'role' => User::ROLE_COMPANY_ADMIN,
             'token' => Str::random(64),
             'invited_by_user_id' => null,
-            'expires_at' => Carbon::now()->addDays($expiresInDays ?? 14),
+            'expires_at' => $this->expiresAt($expiresInDays),
             'metadata' => [],
         ]);
 
@@ -44,16 +50,19 @@ class InviteService
     public function sendStaffInvite(User $inviter, string $email, string $role, ?int $expiresInDays = null): Invite
     {
         if (! $inviter->company_id) {
-            throw new RuntimeException('Korisnik nema kompaniju.');
+            throw new MissingCompanyContextException(__('errors.missing_company'));
         }
+
+        $email = mb_strtolower(trim($email));
+        $this->ensureNoActiveDuplicateInvite((int) $inviter->company_id, $email, $role);
 
         $invite = $this->inviteRepository->create([
             'company_id' => $inviter->company_id,
-            'email' => mb_strtolower(trim($email)),
+            'email' => $email,
             'role' => $role,
             'token' => Str::random(64),
             'invited_by_user_id' => $inviter->id,
-            'expires_at' => Carbon::now()->addDays($expiresInDays ?? 7),
+            'expires_at' => $this->expiresAt($expiresInDays),
             'metadata' => [],
         ]);
 
@@ -67,6 +76,11 @@ class InviteService
         return $this->inviteRepository->findValidByToken($token);
     }
 
+    public function findInviteByToken(string $token): ?Invite
+    {
+        return $this->inviteRepository->findByToken($token);
+    }
+
     public function acceptInvite(Invite $invite, array $data): User
     {
         return DB::transaction(function () use ($invite, $data): User {
@@ -75,7 +89,7 @@ class InviteService
 
             if ($companyId === null) {
                 if ($invite->role !== User::ROLE_COMPANY_ADMIN) {
-                    throw new RuntimeException('Pozivnica bez kompanije moze biti samo za company admin ulogu.');
+                    throw new InviteActionNotAllowedException(__('errors.unauthorized'));
                 }
 
                 $company = $this->companyRepository->create([
@@ -111,5 +125,77 @@ class InviteService
             return $user;
         });
     }
-}
 
+    public function revokeInvite(Invite $invite): Invite
+    {
+        if ($invite->accepted_at !== null) {
+            throw new InviteActionNotAllowedException(__('errors.invite_accepted_cannot_revoke'));
+        }
+
+        if ($invite->revoked_at === null) {
+            $invite->revoked_at = Carbon::now();
+            $invite->save();
+        }
+
+        return $invite;
+    }
+
+    public function revokeTeamInviteForCompany(int $companyId, int $inviteId): Invite
+    {
+        $invite = $this->inviteRepository->findTeamInviteForCompany($companyId, $inviteId);
+
+        if ($invite === null) {
+            throw new TenantResourceNotFoundException(__('errors.invite_not_found'));
+        }
+
+        return $this->revokeInvite($invite);
+    }
+
+    public function resendInvite(Invite $invite): Invite
+    {
+        if ($invite->accepted_at !== null || $invite->revoked_at !== null) {
+            throw new InviteResendNotAllowedException(__('errors.invite_resend_not_allowed'));
+        }
+
+        $invite->token = Str::random(64);
+        $invite->expires_at = Carbon::now()->addMinutes(10);
+        $invite->save();
+
+        Mail::to($invite->email)->send(new InviteMail($invite));
+
+        return $invite;
+    }
+
+    public function resendTeamInviteForCompany(int $companyId, int $inviteId): Invite
+    {
+        $invite = $this->inviteRepository->findTeamInviteForCompany($companyId, $inviteId);
+
+        if ($invite === null) {
+            throw new TenantResourceNotFoundException(__('errors.invite_not_found'));
+        }
+
+        return $this->resendInvite($invite);
+    }
+
+    private function ensureNoActiveDuplicateInvite(?int $companyId, string $email, string $role): void
+    {
+        if ($this->inviteRepository->hasActiveDuplicate($companyId, $email, $role)) {
+            throw ValidationException::withMessages([
+                'email' => [__('errors.invite_duplicate_active')],
+            ]);
+        }
+    }
+
+    private function expiresAt(?int $expiresInDays = null): Carbon
+    {
+        $minimum = Carbon::now()->addMinutes(10);
+
+        if ($expiresInDays === null) {
+            return $minimum;
+        }
+
+        $requested = Carbon::now()->addDays($expiresInDays);
+
+        return $requested->greaterThan($minimum) ? $requested : $minimum;
+    }
+}

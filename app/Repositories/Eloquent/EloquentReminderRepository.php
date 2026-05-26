@@ -5,6 +5,7 @@ namespace App\Repositories\Eloquent;
 use App\Models\Reminder;
 use App\Repositories\Contracts\ReminderRepositoryInterface;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -24,6 +25,7 @@ class EloquentReminderRepository implements ReminderRepositoryInterface
         return Reminder::query()
             ->where('status', Reminder::STATUS_PENDING)
             ->where('remind_at', '<=', $at)
+            ->where(fn (Builder $query) => $this->whereLinkedToExistingPatient($query))
             ->orderBy('remind_at')
             ->limit($limit)
             ->get();
@@ -35,6 +37,7 @@ class EloquentReminderRepository implements ReminderRepositoryInterface
             ->where('company_id', $companyId)
             ->where('status', Reminder::STATUS_PENDING)
             ->where('remind_at', '<=', Carbon::now())
+            ->where(fn (Builder $query) => $this->whereLinkedToExistingPatient($query))
             ->count();
     }
 
@@ -56,5 +59,11 @@ class EloquentReminderRepository implements ReminderRepositoryInterface
 
         return $reminder;
     }
-}
 
+    private function whereLinkedToExistingPatient(Builder $query): void
+    {
+        $query->whereHas('patient')
+            ->orWhereHas('appointment.patient')
+            ->orWhereHas('intervention.patient');
+    }
+}

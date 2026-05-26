@@ -9,10 +9,15 @@ interface InviteRepositoryInterface
 {
     public function create(array $data): Invite;
 
+    public function findByToken(string $token): ?Invite;
+
     public function findValidByToken(string $token): ?Invite;
 
     public function paginateForCompany(int $companyId, int $perPage = 20): LengthAwarePaginator;
 
+    public function findTeamInviteForCompany(int $companyId, int $inviteId): ?Invite;
+
+    public function hasActiveDuplicate(?int $companyId, string $email, string $role): bool;
+
     public function markAccepted(Invite $invite, int $userId): Invite;
 }
-

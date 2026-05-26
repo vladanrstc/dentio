@@ -2,23 +2,29 @@
 
 namespace App\Services;
 
+use App\Exceptions\MissingCompanyContextException;
+use App\Exceptions\TenantResourceNotFoundException;
+use App\Models\Appointment;
+use App\Models\Intervention;
 use App\Models\Patient;
 use App\Models\PatientStatusLog;
 use App\Models\PatientTask;
+use App\Models\Reminder;
 use App\Models\User;
 use App\Repositories\Contracts\PatientRepositoryInterface;
 use App\Repositories\Contracts\PatientTaskRepositoryInterface;
+use App\Services\Contracts\PatientServiceInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
-use RuntimeException;
+use Illuminate\Support\Facades\DB;
 
-class PatientService
+class PatientService implements PatientServiceInterface
 {
     public function __construct(
         private readonly PatientRepositoryInterface $patientRepository,
         private readonly PatientTaskRepositoryInterface $patientTaskRepository,
-    ) {
-    }
+    ) {}
 
     public function paginateForUser(User $user, ?string $search, int $perPage = 15): LengthAwarePaginator
     {
@@ -45,18 +51,57 @@ class PatientService
 
     public function update(User $user, Patient $patient, array $data): Patient
     {
-        if ($patient->company_id !== $this->companyIdOrFail($user)) {
-            throw new RuntimeException('Pacijent ne pripada kompaniji korisnika.');
-        }
+        $this->assertAccessible($user, $patient);
 
         return $this->patientRepository->update($patient, $data);
     }
 
-    public function changeManualStatus(User $user, Patient $patient, string $newStatus, ?string $reason): Patient
+    public function assertAccessible(User $user, Patient $patient): Patient
     {
         if ($patient->company_id !== $this->companyIdOrFail($user)) {
-            throw new RuntimeException('Pacijent ne pripada kompaniji korisnika.');
+            throw new TenantResourceNotFoundException(__('errors.patient_not_found'));
         }
+
+        return $patient;
+    }
+
+    public function delete(User $user, Patient $patient): void
+    {
+        $this->assertAccessible($user, $patient);
+
+        DB::transaction(function () use ($patient): void {
+            $appointmentIds = Appointment::query()
+                ->where('patient_id', $patient->id)
+                ->pluck('id');
+            $interventionIds = Intervention::query()
+                ->where('patient_id', $patient->id)
+                ->pluck('id');
+
+            Reminder::query()
+                ->where(function (Builder $query) use ($patient, $appointmentIds, $interventionIds): void {
+                    $query->where('patient_id', $patient->id)
+                        ->when($appointmentIds->isNotEmpty(), fn (Builder $inner) => $inner->orWhereIn('appointment_id', $appointmentIds))
+                        ->when($interventionIds->isNotEmpty(), fn (Builder $inner) => $inner->orWhereIn('intervention_id', $interventionIds));
+                })
+                ->delete();
+
+            PatientTask::query()
+                ->where('patient_id', $patient->id)
+                ->delete();
+            Intervention::query()
+                ->where('patient_id', $patient->id)
+                ->delete();
+            Appointment::query()
+                ->where('patient_id', $patient->id)
+                ->delete();
+
+            $patient->delete();
+        });
+    }
+
+    public function changeManualStatus(User $user, Patient $patient, string $newStatus, ?string $reason): Patient
+    {
+        $this->assertAccessible($user, $patient);
 
         $previousStatus = $patient->manual_status;
 
@@ -81,9 +126,7 @@ class PatientService
 
     public function addTask(User $user, Patient $patient, array $data): PatientTask
     {
-        if ($patient->company_id !== $this->companyIdOrFail($user)) {
-            throw new RuntimeException('Pacijent ne pripada kompaniji korisnika.');
-        }
+        $this->assertAccessible($user, $patient);
 
         return $this->patientTaskRepository->create([
             'company_id' => $patient->company_id,
@@ -99,7 +142,7 @@ class PatientService
     public function completeTask(User $user, PatientTask $task): PatientTask
     {
         if ($task->company_id !== $this->companyIdOrFail($user)) {
-            throw new RuntimeException('Task ne pripada kompaniji korisnika.');
+            throw new TenantResourceNotFoundException(__('errors.task_not_found'));
         }
 
         if ($task->status === PatientTask::STATUS_DONE) {
@@ -112,10 +155,9 @@ class PatientService
     private function companyIdOrFail(User $user): int
     {
         if (! $user->company_id) {
-            throw new RuntimeException('Korisnik nema dodeljenu kompaniju.');
+            throw new MissingCompanyContextException(__('errors.missing_company'));
         }
 
         return (int) $user->company_id;
     }
 }
-

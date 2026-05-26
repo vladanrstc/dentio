@@ -20,7 +20,26 @@ class Company extends Model
         'email',
         'phone',
         'created_by_user_id',
+        'payments_enabled',
+        'stripe_customer_id',
+        'stripe_subscription_id',
+        'subscription_status',
+        'subscription_plan',
+        'subscription_current_period_end',
+        'subscription_cancel_at_period_end',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'payments_enabled' => 'boolean',
+            'subscription_current_period_end' => 'datetime',
+            'subscription_cancel_at_period_end' => 'boolean',
+        ];
+    }
 
     public function createdBy(): BelongsTo
     {
@@ -51,5 +70,9 @@ class Company extends Model
     {
         return $this->hasMany(Intervention::class);
     }
-}
 
+    public function payments(): HasMany
+    {
+        return $this->hasMany(PatientPayment::class);
+    }
+}

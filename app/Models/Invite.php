@@ -22,6 +22,7 @@ class Invite extends Model
         'accepted_by_user_id',
         'expires_at',
         'accepted_at',
+        'revoked_at',
         'metadata',
     ];
 
@@ -33,6 +34,7 @@ class Invite extends Model
         return [
             'expires_at' => 'datetime',
             'accepted_at' => 'datetime',
+            'revoked_at' => 'datetime',
             'metadata' => 'array',
         ];
     }
@@ -61,5 +63,9 @@ class Invite extends Model
     {
         return $this->expires_at->isPast();
     }
-}
 
+    public function isRevoked(): bool
+    {
+        return $this->revoked_at !== null;
+    }
+}

@@ -64,9 +64,13 @@ class Intervention extends Model
         return $this->hasMany(Reminder::class);
     }
 
+    public function payments(): HasMany
+    {
+        return $this->hasMany(PatientPayment::class);
+    }
+
     public function outstandingAmount(): float
     {
         return max(0, (float) $this->total_cost - (float) $this->paid_amount);
     }
 }
-

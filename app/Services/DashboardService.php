@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
+use App\Exceptions\MissingCompanyContextException;
 use App\Models\User;
 use App\Repositories\Contracts\AppointmentRepositoryInterface;
 use App\Repositories\Contracts\InterventionRepositoryInterface;
 use App\Repositories\Contracts\PatientRepositoryInterface;
 use App\Repositories\Contracts\ReminderRepositoryInterface;
-use RuntimeException;
 
 class DashboardService
 {
@@ -16,8 +16,7 @@ class DashboardService
         private readonly AppointmentRepositoryInterface $appointmentRepository,
         private readonly ReminderRepositoryInterface $reminderRepository,
         private readonly InterventionRepositoryInterface $interventionRepository,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>
@@ -39,10 +38,9 @@ class DashboardService
     private function companyIdOrFail(User $user): int
     {
         if (! $user->company_id) {
-            throw new RuntimeException('Korisnik nema dodeljenu kompaniju.');
+            throw new MissingCompanyContextException(__('errors.missing_company'));
         }
 
         return (int) $user->company_id;
     }
 }
-

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PatientTaskStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,11 +11,11 @@ class PatientTask extends Model
 {
     use HasFactory;
 
-    public const STATUS_OPEN = 'open';
+    public const STATUS_OPEN = PatientTaskStatus::OPEN->value;
 
-    public const STATUS_DONE = 'done';
+    public const STATUS_DONE = PatientTaskStatus::DONE->value;
 
-    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_CANCELLED = PatientTaskStatus::CANCELLED->value;
 
     /**
      * @var list<string>
@@ -67,4 +68,3 @@ class PatientTask extends Model
         return $this->belongsTo(User::class, 'closed_by_user_id');
     }
 }
-

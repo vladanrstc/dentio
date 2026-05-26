@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Exceptions\AppointmentConflictException;
+use App\Exceptions\MissingCompanyContextException;
+use App\Exceptions\TenantResourceNotFoundException;
 use App\Models\Appointment;
 use App\Models\Patient;
 use App\Models\Reminder;
@@ -9,23 +12,29 @@ use App\Models\User;
 use App\Repositories\Contracts\AppointmentRepositoryInterface;
 use App\Repositories\Contracts\ReminderRepositoryInterface;
 use App\Services\Calendar\CalendarSyncServiceInterface;
+use App\Services\Contracts\AppointmentServiceInterface;
 use Illuminate\Support\Carbon;
-use RuntimeException;
 
-class AppointmentService
+class AppointmentService implements AppointmentServiceInterface
 {
     public function __construct(
         private readonly AppointmentRepositoryInterface $appointmentRepository,
         private readonly ReminderRepositoryInterface $reminderRepository,
         private readonly CalendarSyncServiceInterface $calendarSyncService,
-    ) {
-    }
+    ) {}
 
     public function schedule(User $actor, Patient $patient, array $data): Appointment
     {
         if ($patient->company_id !== $this->companyIdOrFail($actor)) {
-            throw new RuntimeException('Pacijent ne pripada kompaniji korisnika.');
+            throw new TenantResourceNotFoundException(__('errors.patient_not_found'));
         }
+
+        $this->ensureDoctorIsAvailable(
+            (int) $patient->company_id,
+            $data['assigned_user_id'] ?? null,
+            $data['starts_at'],
+            $data['ends_at'] ?? null,
+        );
 
         $appointment = $this->appointmentRepository->create([
             'company_id' => $patient->company_id,
@@ -52,6 +61,32 @@ class AppointmentService
         $this->createReminderRowsForAppointment($appointment, $patient, $actor);
 
         return $appointment;
+    }
+
+    public function cancel(User $actor, Appointment $appointment, ?string $reason = null): Appointment
+    {
+        if ($appointment->company_id !== $this->companyIdOrFail($actor)) {
+            throw new TenantResourceNotFoundException(__('errors.appointment_not_found'));
+        }
+
+        $appointment->status = Appointment::STATUS_CANCELLED;
+        $appointment->cancel_reason = $reason;
+        $appointment->save();
+
+        return $appointment;
+    }
+
+    private function ensureDoctorIsAvailable(int $companyId, mixed $assignedUserId, mixed $startsAt, mixed $endsAt): void
+    {
+        if ($assignedUserId === null || $endsAt === null) {
+            return;
+        }
+
+        $overlaps = $this->appointmentRepository->hasActiveOverlap($companyId, (int) $assignedUserId, $startsAt, $endsAt);
+
+        if ($overlaps) {
+            throw new AppointmentConflictException(__('errors.appointment_conflict'));
+        }
     }
 
     private function createReminderRowsForAppointment(Appointment $appointment, Patient $patient, User $actor): void
@@ -102,10 +137,9 @@ class AppointmentService
     private function companyIdOrFail(User $user): int
     {
         if (! $user->company_id) {
-            throw new RuntimeException('Korisnik nema dodeljenu kompaniju.');
+            throw new MissingCompanyContextException(__('errors.missing_company'));
         }
 
         return (int) $user->company_id;
     }
 }
-
