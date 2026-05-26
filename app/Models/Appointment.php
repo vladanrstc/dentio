@@ -88,4 +88,9 @@ class Appointment extends Model
     {
         return $this->hasMany(Reminder::class);
     }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(PatientPayment::class);
+    }
 }

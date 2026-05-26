@@ -8,6 +8,7 @@ use App\Http\Resources\InviteAcceptanceResource;
 use App\Models\User;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\InviteService;
+use App\Services\RecaptchaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
@@ -16,6 +17,7 @@ class InviteAcceptanceApiController extends Controller
     public function __construct(
         private readonly InviteService $inviteService,
         private readonly UserRepositoryInterface $userRepository,
+        private readonly RecaptchaService $recaptcha,
     ) {}
 
     public function show(string $token): InviteAcceptanceResource
@@ -28,6 +30,8 @@ class InviteAcceptanceApiController extends Controller
 
     public function store(AcceptInviteRequest $request, string $token): JsonResponse
     {
+        $this->recaptcha->verify($request->validated('recaptcha_token'));
+
         $invite = $this->inviteService->findInviteByToken($token);
         abort_if($invite === null, Response::HTTP_NOT_FOUND, __('errors.invite_not_found'));
 

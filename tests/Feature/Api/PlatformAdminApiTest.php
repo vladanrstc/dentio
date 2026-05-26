@@ -72,6 +72,15 @@ class PlatformAdminApiTest extends TestCase
     {
         $admin = $this->platformAdmin();
         [$company] = $this->companyWithUser();
+        $company->forceFill([
+            'payments_enabled' => true,
+            'stripe_customer_id' => 'cus_test_admin_detail',
+            'stripe_subscription_id' => 'sub_test_admin_detail',
+            'subscription_status' => 'active',
+            'subscription_plan' => 'monthly',
+            'subscription_current_period_end' => Carbon::parse('2026-06-12 10:00:00'),
+            'subscription_cancel_at_period_end' => true,
+        ])->save();
         $patient = $this->patient($company);
         $invite = $this->invite($company);
 
@@ -85,7 +94,15 @@ class PlatformAdminApiTest extends TestCase
             ->assertJsonPath('data.kpi.pending_invites_count', 1)
             ->assertJsonPath('data.staff.0.role', User::ROLE_COMPANY_ADMIN)
             ->assertJsonPath('data.latest_patients.0.id', $patient->id)
-            ->assertJsonPath('data.latest_invites.0.id', $invite->id);
+            ->assertJsonPath('data.latest_invites.0.id', $invite->id)
+            ->assertJsonPath('data.payments_enabled', true)
+            ->assertJsonPath('data.subscription_status', 'active')
+            ->assertJsonPath('data.subscription_plan', 'monthly')
+            ->assertJsonPath('data.subscription_current_period_end', $company->subscription_current_period_end?->toIso8601String())
+            ->assertJsonPath('data.current_period_end', $company->subscription_current_period_end?->toIso8601String())
+            ->assertJsonPath('data.subscription_cancel_at_period_end', true)
+            ->assertJsonPath('data.stripe_customer_id', 'cus_test_admin_detail')
+            ->assertJsonPath('data.stripe_subscription_id', 'sub_test_admin_detail');
     }
 
     public function test_platform_admin_can_invite_owner(): void
@@ -353,6 +370,18 @@ class PlatformAdminApiTest extends TestCase
         Sanctum::actingAs($companyAdmin);
 
         $this->getJson('/api/v1/admin/dashboard')
+            ->assertForbidden()
+            ->assertHeader('content-type', 'application/json')
+            ->assertJsonMissingPath('data');
+    }
+
+    public function test_company_admin_cannot_access_admin_company_detail(): void
+    {
+        [$company, $companyAdmin] = $this->companyWithUser();
+
+        Sanctum::actingAs($companyAdmin);
+
+        $this->getJson("/api/v1/admin/companies/{$company->id}")
             ->assertForbidden()
             ->assertHeader('content-type', 'application/json')
             ->assertJsonMissingPath('data');

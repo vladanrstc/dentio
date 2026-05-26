@@ -25,7 +25,7 @@ class AcceptInviteRequest extends FormRequest
             'company_name' => ['required_if:requires_company,1', 'nullable', 'string', 'max:255'],
             'company_address' => ['required_if:requires_company,1', 'nullable', 'string', 'max:255'],
             'company_phone' => ['nullable', 'string', 'max:60'],
+            'recaptcha_token' => ['nullable', 'string'],
         ];
     }
 }
-

@@ -40,4 +40,19 @@ return [
         'access_token' => env('GOOGLE_CALENDAR_ACCESS_TOKEN'),
     ],
 
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        'monthly_price_id' => env('STRIPE_MONTHLY_PRICE_ID'),
+        'yearly_price_id' => env('STRIPE_YEARLY_PRICE_ID'),
+        'currency' => env('STRIPE_CURRENCY', 'usd'),
+    ],
+
+    'recaptcha' => [
+        'secret_key' => env('RECAPTCHA_SECRET_KEY'),
+        'enabled' => filter_var(env('RECAPTCHA_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'min_score' => (float) env('RECAPTCHA_MIN_SCORE', 0.5),
+    ],
+
 ];

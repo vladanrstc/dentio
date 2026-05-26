@@ -4,13 +4,16 @@ namespace App\Models;
 
 use App\Enums\PatientStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-class Patient extends Model
+class Patient extends Authenticatable
 {
-    use HasFactory;
+    use HasApiTokens, HasFactory;
+
+    public const ROLE_CLIENT = 'client';
 
     public const STATUS_ACTIVE = PatientStatus::ACTIVE->value;
 
@@ -32,10 +35,18 @@ class Patient extends Model
         'address',
         'phone',
         'email',
+        'password',
         'manual_status',
         'manual_status_reason',
         'manual_status_changed_at',
         'notes',
+    ];
+
+    /**
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
     ];
 
     /**
@@ -45,6 +56,7 @@ class Patient extends Model
     {
         return [
             'manual_status_changed_at' => 'datetime',
+            'password' => 'hashed',
         ];
     }
 
@@ -86,6 +98,11 @@ class Patient extends Model
     public function reminders(): HasMany
     {
         return $this->hasMany(Reminder::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(PatientPayment::class);
     }
 
     public function fullName(): string

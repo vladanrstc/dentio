@@ -6,6 +6,7 @@ use App\Models\Patient;
 use App\Repositories\Contracts\PatientRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class EloquentPatientRepository implements PatientRepositoryInterface
 {
@@ -44,6 +45,14 @@ class EloquentPatientRepository implements PatientRepositoryInterface
             ->first();
     }
 
+    public function findForCompanyByEmail(int $companyId, string $email): ?Patient
+    {
+        return Patient::query()
+            ->where('company_id', $companyId)
+            ->where('email', $email)
+            ->first();
+    }
+
     public function findWithRelationsForCompany(int $companyId, int $patientId): ?Patient
     {
         return Patient::query()
@@ -61,6 +70,36 @@ class EloquentPatientRepository implements PatientRepositoryInterface
                 'tasks.createdBy',
                 'tasks.closedBy',
                 'statusLogs.changedBy',
+            ])
+            ->withCount([
+                'tasks as open_tasks_count' => fn (Builder $query) => $query->where('status', 'open'),
+            ])
+            ->first();
+    }
+
+    public function loginCandidatesByEmail(string $email): Collection
+    {
+        return Patient::query()
+            ->where('email', $email)
+            ->whereNotNull('password')
+            ->get();
+    }
+
+    public function findClientProfile(int $patientId): ?Patient
+    {
+        return Patient::query()
+            ->whereKey($patientId)
+            ->with([
+                'primaryDentist',
+                'appointments' => fn ($query) => $query->latest('starts_at'),
+                'appointments.scheduledBy',
+                'appointments.assignedTo',
+                'interventions' => fn ($query) => $query->latest('intervention_date')->latest('id'),
+                'interventions.performedBy',
+                'tasks' => fn ($query) => $query->orderByRaw("CASE WHEN status = 'open' THEN 0 ELSE 1 END")->orderBy('due_date')->latest('id'),
+                'tasks.assignedTo',
+                'tasks.createdBy',
+                'tasks.closedBy',
             ])
             ->withCount([
                 'tasks as open_tasks_count' => fn (Builder $query) => $query->where('status', 'open'),

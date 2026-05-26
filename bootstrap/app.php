@@ -4,7 +4,10 @@ use App\Exceptions\AppointmentConflictException;
 use App\Exceptions\InviteActionNotAllowedException;
 use App\Exceptions\InviteResendNotAllowedException;
 use App\Exceptions\MissingCompanyContextException;
+use App\Exceptions\PaymentActionNotAllowedException;
 use App\Exceptions\ReportExportException;
+use App\Exceptions\StripeConfigurationException;
+use App\Exceptions\StripeWebhookException;
 use App\Exceptions\TenantResourceNotFoundException;
 use App\Http\Middleware\EnsureUserRole;
 use Illuminate\Console\Scheduling\Schedule;
@@ -43,7 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         });
 
-        $exceptions->render(function (InviteActionNotAllowedException|MissingCompanyContextException $exception, Request $request) {
+        $exceptions->render(function (InviteActionNotAllowedException|MissingCompanyContextException|PaymentActionNotAllowedException $exception, Request $request) {
             if (! $request->expectsJson() && ! $request->is('api/*')) {
                 return null;
             }
@@ -51,6 +54,26 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json([
                 'message' => $exception->getMessage(),
             ], Response::HTTP_FORBIDDEN);
+        });
+
+        $exceptions->render(function (StripeWebhookException $exception, Request $request) {
+            if (! $request->expectsJson() && ! $request->is('api/*')) {
+                return null;
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], Response::HTTP_BAD_REQUEST);
+        });
+
+        $exceptions->render(function (StripeConfigurationException $exception, Request $request) {
+            if (! $request->expectsJson() && ! $request->is('api/*')) {
+                return null;
+            }
+
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         });
 
         $exceptions->render(function (ReportExportException $exception, Request $request) {

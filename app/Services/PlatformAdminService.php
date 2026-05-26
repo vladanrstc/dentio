@@ -57,6 +57,14 @@ class PlatformAdminService
         $company->delete();
     }
 
+    public function updatePaymentSettings(Company $company, bool $enabled): Company
+    {
+        $company->payments_enabled = $enabled;
+        $company->save();
+
+        return $company;
+    }
+
     public function assertCompanyExists(?Company $company): Company
     {
         if ($company === null) {

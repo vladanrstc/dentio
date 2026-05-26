@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateCompanyPaymentSettingsRequest;
 use App\Http\Requests\Invite\SendOwnerInviteRequest;
 use App\Http\Resources\AdminCompanyDetailResource;
 use App\Http\Resources\AdminCompanyResource;
@@ -71,6 +72,21 @@ class PlatformAdminApiController extends Controller
         return response()->json([
             'data' => [
                 'deleted' => true,
+            ],
+        ]);
+    }
+
+    public function updatePaymentSettings(UpdateCompanyPaymentSettingsRequest $request, Company $company): JsonResponse
+    {
+        $company = $this->platformAdminService->updatePaymentSettings(
+            $company,
+            (bool) $request->validated('payments_enabled'),
+        );
+
+        return response()->json([
+            'data' => [
+                'id' => $company->id,
+                'payments_enabled' => (bool) $company->payments_enabled,
             ],
         ]);
     }
